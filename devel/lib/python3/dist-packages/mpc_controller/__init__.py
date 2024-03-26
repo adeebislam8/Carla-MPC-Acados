@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/mpc_controller/lib/python3/dist-packages/mpc_controller/__init__.py

@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/global_planner/share/gennodejs/ros/global_planner/srv/World2FrenetService.js

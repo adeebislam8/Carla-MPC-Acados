@@ -1,0 +1,50 @@
+<!-- -->
+<launch>
+  <arg name='host' default='localhost'/>
+  <arg name='port' default='2000'/>
+  <arg name='timeout' default='10'/>
+  <arg name="role_name" default="ego_vehicle" />
+
+  <!-- <node pkg="global_planner" type="global_path_publisher.py" name="global_path_publisher" output="screen">
+    <param name="role_name" value="$(arg role_name)" />
+    <param name="host" value="$(arg host)" />
+    <param name="port" value="$(arg port)" />
+    <param name="timeout" value="$(arg timeout)" />
+  </node> -->
+
+  <!-- <arg name="role_name" default="ego_vehicle"/> -->
+  <arg name="avoid_risk" default="True"/>
+  <arg name="control_time_step" default="0.05"/>
+
+  <!-- rviz -->
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find mpc_controller)/config/carla_viz.rviz" output="screen"/>
+
+  <node pkg="global_planner" type="global_path_publisher.py" name="global_path_publisher" output="screen">
+    <param name="role_name" value="$(arg role_name)" />
+    <param name="host" value="$(arg host)" />
+    <param name="port" value="$(arg port)" />
+    <param name="timeout" value="$(arg timeout)" />
+  </node>
+
+  <node pkg="global_planner" type="frenet_world_converter.py" name="frenet_world_converter" output="screen">
+    <param name="role_name" value="$(arg role_name)" />
+    <param name="host" value="$(arg host)" />
+    <param name="port" value="$(arg port)" />
+    <param name="timeout" value="$(arg timeout)" />
+  </node>
+
+  <!-- <node pkg="carla_ad_agent" type="ad_agent.py" name="carla_ad_agent_$(arg role_name)" output="screen">
+    <param name="role_name" value="$(arg role_name)" />
+    <param name="avoid_risk" value="$(arg avoid_risk)" />
+  </node> -->
+
+  <node pkg="mpc_controller" type="mpc_controller.py" name="mpc_controller_$(arg role_name)" output="screen">
+    <param name="role_name" value="$(arg role_name)" />
+    <param name="control_time_step" value="$(arg control_time_step)" />
+  </node>
+
+  <include file="$(find carla_ad_demo)/launch/carla_ad_demo.launch">
+    <arg name="role_name" value="$(arg role_name)" />
+    <arg name="avoid_risk" value="$(arg avoid_risk)" />
+  </include>
+</launch>

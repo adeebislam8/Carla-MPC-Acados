@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ackermann_control/lib/python3/dist-packages/carla_ackermann_control/cfg/EgoVehicleControlParameterConfig.py

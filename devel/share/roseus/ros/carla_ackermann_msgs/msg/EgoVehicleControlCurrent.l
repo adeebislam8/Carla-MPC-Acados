@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ackermann_msgs/share/roseus/ros/carla_ackermann_msgs/msg/EgoVehicleControlCurrent.l
