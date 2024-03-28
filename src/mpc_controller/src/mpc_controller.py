@@ -15,11 +15,15 @@ Todo:
     - Implement the border publishing node
 
 """
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import collections
 import math
 import threading
 
+import numpy as np
 import ros_compatibility as roscomp
 from ros_compatibility.node import CompatibleNode
 from ros_compatibility.qos import QoSProfile, DurabilityPolicy
@@ -36,6 +40,9 @@ from visualization_msgs.msg import Marker
 
 from global_planner.srv import Frenet2WorldService, World2FrenetService
 from global_planner.msg import FrenetPose, WorldPose
+from acados_mpc.acados_settings import acados_settings
+from utils.convert_traj_track import parseReference
+from scipy.interpolate import make_interp_spline
 
 class LocalPlannerMPC(CompatibleNode):
     """
@@ -60,7 +67,10 @@ class LocalPlannerMPC(CompatibleNode):
         # Fetch the Q and R matrices from parameters
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
-        
+        self.Tf = 1.0
+        self.N = 10
+        self.spline_degree = 3
+        self.s_list = np.ones(self.N+1)
         # Log the matrices for verification
         # self.loginfo("Q matrix: %s", str(self.Q_matrix))
         # self.loginfo("R matrix: %s", str(self.R_matrix))
@@ -69,7 +79,7 @@ class LocalPlannerMPC(CompatibleNode):
         self._current_pose = None
         self._current_speed = None
         self._current_velocity = None
-        self._target_speed = 0.0
+        self._target_speed = 20.0
         self._current_accel = None
         self._current_throttle = None
         self._current_brake = None
@@ -79,6 +89,8 @@ class LocalPlannerMPC(CompatibleNode):
         self._waypoints_queue = collections.deque(maxlen=20000)
         self._waypoint_buffer = collections.deque(maxlen=self._buffer_size)
 
+        self.acados_solver = None
+        self.path_initialized = False
         # subscribers
         self._odometry_subscriber = self.new_subscription(
             Odometry,
@@ -92,7 +104,8 @@ class LocalPlannerMPC(CompatibleNode):
             qos_profile=10)
         self._path_subscriber = self.new_subscription(
             Path,
-            "/carla/{}/waypoints".format(role_name),
+            # "/carla/{}/waypoints".format(role_name),
+            "/global_planner/{}/waypoints".format(role_name),
             self.path_cb,
             QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
         
@@ -128,7 +141,7 @@ class LocalPlannerMPC(CompatibleNode):
             qos_profile=10)
         self._control_cmd_publisher = self.new_publisher(
             CarlaEgoVehicleControl,
-            "/mpc_controller/{}/vehicle_control_cmd".format(role_name),
+            "/carla/{}/vehicle_control_cmd".format(role_name),
             qos_profile=10)
         
         self._reference_path_publisher = self.new_publisher(
@@ -136,6 +149,10 @@ class LocalPlannerMPC(CompatibleNode):
             "/mpc_controller/{}/reference_path".format(role_name),
             qos_profile=10)
 
+        self._predicted_path_publisher = self.new_publisher(
+            Path,
+            "/mpc_controller/{}/predicted_path".format(role_name),
+            qos_profile=10)
         # initializing controller
         # self._vehicle_controller = VehicleMPCController(
         #     self)
@@ -144,6 +161,7 @@ class LocalPlannerMPC(CompatibleNode):
         # self.loginfo("Received odometry message")
         with self.data_lock:
             self._current_pose = odometry_msg.pose.pose
+            # self.loginfo("odom callback: {}".format(self._current_pose))
             self._current_speed = math.sqrt(odometry_msg.twist.twist.linear.x ** 2 +
                                             odometry_msg.twist.twist.linear.y ** 2 +
                                             odometry_msg.twist.twist.linear.z ** 2) * 3.6 # m/s to km/h
@@ -154,7 +172,7 @@ class LocalPlannerMPC(CompatibleNode):
         ref_path.header.frame_id = "map"
         ref_path.header.stamp = roscomp.ros_timestamp(self.get_time(), from_sec=True)
 
-
+        # print("Current pose: ", pose)
         frenet_pose = self._get_frenet_pose(pose)
         # self.loginfo("Frenet pose: {}".format(frenet_pose))
         s, d = frenet_pose.s, frenet_pose.d
@@ -207,6 +225,12 @@ class LocalPlannerMPC(CompatibleNode):
         # request.target_v = self._target_speed
 
         response = self._world2frenet_service(request)
+        if response is None:
+            self.loginfo("Failed to get frenet pose")
+            dummy = FrenetPose()
+            dummy.s = 0
+            dummy.d = 0
+            return dummy
         # self.loginfo("Test _get_frenet_pose: {}".format(response))
         return response.frenet_pose
 
@@ -233,9 +257,19 @@ class LocalPlannerMPC(CompatibleNode):
             self._waypoints_queue.clear()
             self._waypoints_queue.extend([pose.pose for pose in path_msg.poses])
             # self.loginfo("Received path message of length: {}".format(len(path_msg)))
-            self.loginfo("Current waypoints queue length: {}".format(len(self._waypoints_queue)))
-            self.loginfo("Current waypoints buffer length: {}".format(len(self._waypoint_buffer)))
+            # self.loginfo("Current waypoints queue length: {}".format(len(self._waypoints_queue)))
+            # self.loginfo("Current waypoints buffer length: {}".format(len(self._waypoint_buffer)))
             # self.loginfo("First waypoint in queue: {}".format(self._waypoints_queue[0]))
+
+            # sparsify path_msg
+            path_msg.poses = path_msg.poses[::5]
+            _, _, _, dense_s, _, kappa = parseReference(path_msg)
+            kappa_spline = make_interp_spline(dense_s, kappa, k=3)
+            self.spline_coeffs = kappa_spline.c
+            self.spline_knots = kappa_spline.t
+            self.loginfo("Spline coefficients: {}".format(self.spline_coeffs))
+            self.loginfo("Spline knots: {}".format(self.spline_knots))
+            self.path_initialized = True
 
     ## Todo: Write border publishing node and implement this function ##
     def border_cb(self, path_msg):
@@ -269,29 +303,170 @@ class LocalPlannerMPC(CompatibleNode):
 
         """
         with self.data_lock:
-            # debug info
-            self.loginfo("Current speed: {}".format(self._current_speed))
-            self.loginfo("Current pose: {}".format(self._current_pose)) 
-            self.loginfo("Current velocity: {}".format(self._current_velocity))
-            self.loginfo("Target speed: {}".format(self._target_speed))
-            self.loginfo("Current throttle: {}".format(self._current_throttle))
-            self.loginfo("Current brake: {}".format(self._current_brake))
-            self.loginfo("Current steering: {}".format(self._current_steering))
-            self.loginfo("Current acceleration: {}".format(self._current_accel))
-
+        # debug info
+            while not self.path_initialized:
+                self.loginfo("Waiting for path to be initialized")
+                return
+            while not self._current_pose:
+                self.loginfo("Waiting for odometry message")
+                return
+            
+            # self.loginfo("Current speed: {}".format(self._current_speed))
+            # self.loginfo("Current pose: {}".format(self._current_pose)) 
+            # self.loginfo("Current velocity: {}".format(self._current_velocity))
+            # self.loginfo("Target speed: {}".format(self._target_speed))
+            # self.loginfo("Current throttle: {}".format(self._current_throttle))
+            # self.loginfo("Current brake: {}".format(self._current_brake))
+            # self.loginfo("Current steering: {}".format(self._current_steering))
+            # self.loginfo("Current acceleration: {}".format(self._current_accel))
+            # self.loginfo("Frenet pose: {}".format(self._get_frenet_pose(self._current_pose)))
+            # return
             # initiailize the acados problem
-            # self._acados_init()
+            if self.acados_solver is None:
+                self.constraint, self.model, self.acados_solver = acados_settings(self.Tf, self.N, self.spline_coeffs, self.spline_knots, self.spline_degree)
+                self.loginfo("Initialized acados solver")
+
             # setup ocp
-            # self._setup_ocp(
+            frenet_pose = self._get_frenet_pose(self._current_pose)
+            # self.loginfo("Frenet pose in run step: {}".format(frenet_pose))
+            if self._current_brake != 0:
+                D = -self._current_brake
+            else:
+                D = self._current_throttle
+
+            s, n, alpha, v, D, delta = frenet_pose.s, frenet_pose.d, frenet_pose.yaw_s, self._current_speed, D, self._current_steering
+            
+            # x = [s, n, alpha, v, D, delta]
+            self.acados_solver.set(0, "x", np.array([s, n, alpha, v, D, delta]))
+
+            for i in range(1, self.N):
+                yref = np.array([
+                    s + self._target_speed * (self.Tf / self.N) * (i+1),     # s
+                    0,                                                       # n
+                    0,                                                       # alpha
+                    0,                                                       # v
+                    0,                                                       # D
+                    0,                                                       # delta
+                    0,                                                       # derD   
+                    0,                                                       # derdelta
+                ])
+                self.acados_solver.set(i, "yref", yref)
+
+                self.acados_solver.constraints_set(i, "lh", np.array([
+                    self.constraint.along_min,
+                    self.constraint.alat_min,
+                    self.model.n_min,
+                    self.model.v_min,
+                    self.model.throttle_min,
+                    self.model.delta_min
+                ]))
+                self.acados_solver.constraints_set(i, "uh", np.array([
+                    self.constraint.along_max,
+                    self.constraint.alat_max,
+                    self.model.n_max,
+                    self.model.v_max,
+                    self.model.throttle_max,
+                    self.model.delta_max
+                ]))
+
+            
+            yref_N = np.array([
+                s + self._target_speed * self.Tf,     # s
+                0,                                     # n
+                0,                                     # alpha
+                0,                                     # v
+                0,                                     # D
+                0                                      # delta
+            ])
+            self.acados_solver.set(self.N, "yref", yref_N)
+            self.acados_solver.constraints_set(0, "lbx", np.array([s, n, alpha, v, D, delta]))
+            self.acados_solver.constraints_set(0, "ubx", np.array([s, n, alpha, v, D, delta]))
+            
             # solve ocp
+            status = self.acados_solver.solve()
+            if status != 0:
+                self.loginfo("acados returned status {}".format(status))
+            
 
             # get solution
+            for i in range(self.N + 1):
+                x = self.acados_solver.get(i, "x")
+                self.s_list[i] = x[0]
+                
+            solution_list = []
+            for i in range(self.N):
+                solution_list.append(self.acados_solver.get(i, "x"))
 
-            # update initial condition
+            isNaN = False
+            predicted_path = Path()
+            predicted_path.header.frame_id = "map"
+            predicted_path.header.stamp = roscomp.ros_timestamp(self.get_time(), from_sec=True)
+
+            for i, solution in enumerate(solution_list):
+                if np.isnan(solution).any():
+                    self.loginfo("Nan in solution at index {}".format(i))
+                    isNaN = True
+                    break
+
+                # self.loginfo("Solution{}: {}".format(i, solution))
+                req = FrenetPose(solution[0], 0, 0, solution[1], 0, 0, 0)
+                resp = self._frenet2world_service(req)
+                pose_msg = self._world2pose(resp)
+                pose_stamped = PoseStamped()
+                pose_stamped.pose = pose_msg
+                predicted_path.poses.append(pose_stamped)
+
+            print('          s          n     alpha      v         D     delta')
+            for i in range(0, self.N+1, 1):
+                x = self.acados_solver.get(i, "x")
+                print(f"x{i}: , {x[0]:8.4f}, {x[1]:8.4f}, {x[2]:8.4f}, {x[3]:8.4f}, {x[4]:8.4f}, {x[5]:8.4f}")
+                # update initial condition
+
+            # self._predicted_path_publisher.publish(predicted_path)
 
             # draw computed trajectory
+            if not isNaN:
+                # predicted_path_msg = Path()
+                # predicted_path_msg.poses = predicted_path
+                self._predicted_path_publisher.publish(predicted_path)
 
-            return
+                # x0 = self.acados_solver.get(1, "x")
+                # u0 = self.acados_solver.get(1, "x")
+                # self.accel = x0[6]
+                # print("self.accel: ", self.accel)
+
+                # self.derD = u0[0]
+                # self.derdelta = u0[1]
+                # self.jerk = u0[2]
+                # print("jerk: ", self.jerk)
+
+                self.target_D = x[4]
+                self.target_delta = x[5]
+
+                if self.target_D >= 0:
+                    self.target_gas = self.target_D
+                    self.target_brake = 0
+
+                else:
+                    self.target_brake = -self.target_D
+                    self.target_gas = 0
+
+                self.target_steer = self.target_delta 
+
+                control_msg = CarlaEgoVehicleControl()
+                control_msg.steer = self.target_steer
+                control_msg.throttle = self.target_gas
+                control_msg.brake = self.target_brake
+                control_msg.hand_brake = False
+                control_msg.manual_gear_shift = False
+                # print("Control message: ", control_msg)
+                self._control_cmd_publisher.publish(control_msg)
+                # control_msg = Control_Signal()
+                # control_msg.gas = self.target_gas
+                # control_msg.brake = self.target_brake
+                # control_msg.steerangle = self.target_steer
+                # self._vehicle_cmd_publisher.publish(control_msg)
+                # return
 
             # 
 

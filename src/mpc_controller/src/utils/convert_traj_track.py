@@ -19,6 +19,8 @@ def parseGlobal(msg: Path):
     
     d_spline = interp.CubicSpline(ss, ds)
     v_spline = interp.CubicSpline(ss, vs)
+    # d_spline = interp.make_interp_spline(ss, ds, k=3)
+    # v_spline = interp.make_interp_spline(ss, vs, k=3)
 
     ss = np.array(ss)
 
@@ -66,8 +68,11 @@ def parseReference(msg: Path):
 
     x_spline = interp.CubicSpline(ds, xs, bc_type=((1, x_slope_start), (1, x_slope_end)))
     y_spline = interp.CubicSpline(ds, ys, bc_type=((1, y_slope_start), (1, y_slope_end)))
-
+    # x_spline = interp.make_interp_spline(ds, xs, k=3, bc_type=((1, x_slope_start), (1, x_slope_end)))
+    # y_spline = interp.make_interp_spline(ds, ys, k=3, bc_type=((1, y_slope_start), (1, y_slope_end)))
     # Generate a dense list of 's' values for interpolation
+    # x_spline = interp.CubicSpline(ds, xs, bc_type="clamped")
+    # y_spline = interp.CubicSpline(ds, ys, bc_type="clamped")
     dense_s = np.linspace(ds[0], ds[-1], int(ds[-1]/0.1)) # Change 1000 to the density you want
 
     # Get first derivatives
@@ -84,4 +89,4 @@ def parseReference(msg: Path):
     # Compute kappa (curvature)
     kappa = (dx_ds * dy2_ds2 - dy_ds * dx2_ds2) / (dx_ds**2 + dy_ds**2)**(1.5)
 
-    return x_spline, y_spline, rw_spline, lw_spline, ds[-1], dense_s, phi, kappa
+    return x_spline, y_spline, ds[-1], dense_s, phi, kappa

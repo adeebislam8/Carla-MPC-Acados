@@ -1,6 +1,9 @@
 from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver, AcadosSimSolver
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from mpc_controller.acados_mpc.bicycle_model import bicycle_model
+from bicycle_model import bicycle_model
 import scipy.linalg
 import numpy as np
 import math
@@ -9,13 +12,14 @@ DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 
 
-def acados_settings(Tf, N, global_path_frenet_msg):
+def acados_settings(Tf, N, coeffs, knots, degree=3):
     # create render arguments
     ocp = AcadosOcp()
     dt = Tf/N
     # export model
-    model, constraint = bicycle_model(global_path_frenet_msg, dt)
-
+    print("before model")
+    model, constraint = bicycle_model(dt, coeffs, knots, degree)
+    print("after model")
     # define acados ODE
     model_ac = AcadosModel()
     model_ac.f_impl_expr = model.f_impl_expr
@@ -39,7 +43,8 @@ def acados_settings(Tf, N, global_path_frenet_msg):
 
     nsbx = 0
     nh = constraint.expr.shape[0]
-    nsh = nh - 9 # # not slacking obstacle avoidance constraints
+    nsh = 3         # slacking only alat, along, n_max
+    # nsh = nh - 9 # # not slacking obstacle avoidance constraints
     # nsh = nh - 10 # # not slacking obstacle avoidance constraints & border
 
     ns = nsh + nsbx
@@ -120,12 +125,12 @@ def acados_settings(Tf, N, global_path_frenet_msg):
     # # follows track
     # OBS WITH S CONTROL
     Q = np.diag([ 
-        0, # s 
-        0, # n
-        1e-8, # n_diff
-        1e-8, # alpha
+        0.9, # s 
+        10, # n
+        # 1e-8, # n_diff
+        0, # alpha
         0, # v
-        1e0, # v_diff
+        # 1e0, # v_diff
         0, # D
         0, # delta
         # 0, # yaw_rate
@@ -134,16 +139,16 @@ def acados_settings(Tf, N, global_path_frenet_msg):
     
     R = np.eye(nu)
     R[0, 0] = 1e2
-    R[1, 1] = 8e1
+    R[1, 1] = 1e1
     
     # set terminal cost
     Qe = np.diag([ 
-        0, # s
-        0, # n
-        0, # n_diff
-        1e-8, # alpha
+        0.9, # s
+        10, # n
+        # 0, # n_diff
+        0, # alpha
         0, # v
-        0, # v_diff
+        # 0, # v_diff
         0, # D
         0, # delta
         # 0, # yaw_rate
@@ -157,8 +162,8 @@ def acados_settings(Tf, N, global_path_frenet_msg):
     ocp.cost.Vx = Vx
 
     Vu = np.zeros((ny, nu))
-    Vu[8, 0] = 1.0
-    Vu[9, 1] = 1.0
+    Vu[6, 0] = 1.0
+    Vu[7, 1] = 1.0
     ocp.cost.Vu = Vu
 
     Vx_e = np.zeros((ny_e, nx))
@@ -166,14 +171,17 @@ def acados_settings(Tf, N, global_path_frenet_msg):
     ocp.cost.Vx_e = Vx_e
 
     # set intial references
-    ocp.cost.yref = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    ocp.cost.yref_e = np.array([0, 0, 0, 0, 0, 0, 0, 0,])
+    ocp.cost.yref = np.array([1, 0, 0, 0, 0, 0, 0, 0,])
+    ocp.cost.yref_e = np.array([0, 0, 0, 0, 0, 0,])
 
     ocp.constraints.lbu = np.array([model.dthrottle_min, model.ddelta_min])
     ocp.constraints.ubu = np.array([model.dthrottle_max, model.ddelta_max])
     ocp.constraints.idxbu = np.array([0, 1])
 
-    ocp.parameter_values = np.array([0, 0]*6)
+    obstacle_params = np.array([0, 0]*6)
+    ocp.parameter_values = obstacle_params
+    # spline_params = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    # ocp.parameter_values = np.concatenate((obstacle_params, spline_params))
     ocp.constraints.lh = np.array(
         [
             constraint.along_min,
@@ -182,12 +190,12 @@ def acados_settings(Tf, N, global_path_frenet_msg):
             model.v_min,
             model.throttle_min,
             model.delta_min,
-            constraint.dist_obs1_min,
-            constraint.dist_obs2_min,
-            constraint.dist_obs3_min,
-            constraint.dist_obs4_min,
-            constraint.dist_obs5_min,
-            constraint.dist_obs6_min
+            # constraint.dist_obs1_min,
+            # constraint.dist_obs2_min,
+            # constraint.dist_obs3_min,
+            # constraint.dist_obs4_min,
+            # constraint.dist_obs5_min,
+            # constraint.dist_obs6_min
         ]
     )
     ocp.constraints.uh = np.array(
@@ -198,26 +206,26 @@ def acados_settings(Tf, N, global_path_frenet_msg):
             model.v_max,
             model.throttle_max,
             model.delta_max,
-            constraint.dist_obs1_max,
-            constraint.dist_obs2_max,
-            constraint.dist_obs3_max,
-            constraint.dist_obs4_max,
-            constraint.dist_obs5_max,
-            constraint.dist_obs6_max
+            # constraint.dist_obs1_max,
+            # constraint.dist_obs2_max,
+            # constraint.dist_obs3_max,
+            # constraint.dist_obs4_max,
+            # constraint.dist_obs5_max,
+            # constraint.dist_obs6_max
         ]
     )
 
     slack_L1_cost = np.array([
         1e1,
         1e1,
-        1e3, ##
+        1e1, ##
         # 1,
         # 1,
     ])
     slack_L2_cost = np.array([
-        1e3,
-        1e3,
-        1e3, ##
+        1e1,
+        1e1,
+        1e1, ##
         # 1,
         # 1,
     ])
@@ -257,7 +265,7 @@ def acados_settings(Tf, N, global_path_frenet_msg):
     acados_solver = AcadosOcpSolver(ocp, json_file="acados_ocp.json")
     # acados_solver = AcadosOcpSolver.generate(ocp, json_file="acados_ocp.json")
 
-    acados_integrator = AcadosSimSolver(ocp, json_file="acados_ocp.json")
+    # acados_integrator = AcadosSimSolver(ocp, json_file="acados_ocp.json")
     # acados_solver = AcadosOcpSolver.
 
-    return constraint, model, acados_solver, acados_integrator
+    return constraint, model, acados_solver

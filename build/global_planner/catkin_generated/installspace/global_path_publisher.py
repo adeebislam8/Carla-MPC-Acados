@@ -185,9 +185,9 @@ class CarlaToRosWaypointConverter(CompatibleNode):
         extractBorders = EB(self.world, self.ego_vehicle)
         global_wp = [x[0] for x in self.current_route]
         left_border_wp, right_border_wp = extractBorders.get_border_waypoints(global_wp)
-        self.loginfo("Extracted borders.")
-        print('left_border_wp:', left_border_wp[0])
-        print('right_border_wp:', right_border_wp[0])
+        # self.loginfo("Extracted borders.")
+        # print('left_border_wp:', left_border_wp[0])
+        # print('right_border_wp:', right_border_wp[0])
         return left_border_wp, right_border_wp
         # self.publish_borders(left_border_wp, right_border_wp)
 

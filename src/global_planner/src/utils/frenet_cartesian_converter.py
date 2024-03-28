@@ -1,6 +1,6 @@
 # Frenet-Cartesian Converter
 import numpy as np
-from scipy.interpolate import CubicSpline, make_interp_spline
+from scipy.interpolate import make_interp_spline
 from scipy.spatial.distance import cdist
 
 """
@@ -85,6 +85,7 @@ class FrenetCartesianConverter:
         alpha = yaw - path_angle
         return alpha
     
+
     
     def _fit_cubic_spline(self, waypoints):
         # sparsify the waypoints

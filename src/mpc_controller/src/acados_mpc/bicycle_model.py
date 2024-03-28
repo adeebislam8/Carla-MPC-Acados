@@ -6,14 +6,14 @@ import math
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 
-def bicycle_model(dt):
+def bicycle_model(dt, coeff, knots, degree=3):
     # define structs
     constraint = types.SimpleNamespace()
     model = types.SimpleNamespace()
 
     model_name = "Spatialbicycle_model"
 
-
+    kapparef_s = Function.bspline('kapparef_s', [knots], coeff, [degree], 1)
 
     # load track parameters
     # [ _, _, _, _, _, s0, _, kapparef] = parseReference(reference_msg)
@@ -58,7 +58,7 @@ def bicycle_model(dt):
     D = MX.sym("D")
     delta = MX.sym("delta")
     # yaw_rate = MX.sym("yaw_rate")
-    x = vertcat(s, n, n_diff, alpha, v, v_diff, D, delta)
+    x = vertcat(s, n, alpha, v, D, delta)
 
     # controls
     derD = MX.sym("derD")
@@ -75,7 +75,7 @@ def bicycle_model(dt):
     Ddot = MX.sym("Ddot")
     deltadot = MX.sym("deltadot")
     # yaw_ratedot = MX.sym("yaw_ratedot")
-    xdot = vertcat(sdot, ndot, n_diffdot, alphadot, vdot, v_diffdot, Ddot, deltadot)
+    xdot = vertcat(sdot, ndot, alphadot, vdot, Ddot, deltadot)
 
     # algebraic variables
     z = vertcat([])
@@ -103,6 +103,7 @@ def bicycle_model(dt):
     s_obs6 = MX.sym("s_obs6")
     n_obs6 = MX.sym("n_obs6")
 
+    """ spline coeffients and knots """
 
     p = vertcat(s_obs1, n_obs1, 
                 s_obs2, n_obs2,
@@ -124,22 +125,33 @@ def bicycle_model(dt):
     # Fxd = (Cm1 - Cm2*v)*D - Cr2*v**2 - Cr0
 
     a_long = Fxd / m
-
+    delta = -delta
     sdot = (v * cos(alpha + C1 * delta)) / (1 - kapparef_s(s) * n)
     ndot = v * sin(alpha + C1 * delta)
+    # f_expl = vertcat(
+    #     sdot,                                                      # sdot
+    #     ndot,                               # ndot
+    #     v * sin(alpha + C1 * delta) - nglobaldot_s(s) * sdot,      
+    #     v * C2 * delta - kapparef_s(s) * sdot,                   # alphadot
+    #     # yaw_rate - kapparef_s(s) * sdot,                     # alphadot
+    #     a_long * cos(C1 * delta),                                  # vdot
+    #     a_long * cos(C1 * delta) - vglobaldot_s(s) * sdot,
+    #     derD,
+    #     derDelta,
+    #     # (C1 * v * cos(C1 * delta) * derDelta + sin(C1*delta) * a_long * cos(C1 * delta))/lr,    # "vdot = a_long * cos(C1 * delta)"
+    # )
     f_expl = vertcat(
         sdot,                                                      # sdot
         ndot,                               # ndot
-        v * sin(alpha + C1 * delta) - nglobaldot_s(s) * sdot,      
+        # v * sin(alpha + C1 * delta) - nglobaldot_s(s) * sdot,      
         v * C2 * delta - kapparef_s(s) * sdot,                   # alphadot
         # yaw_rate - kapparef_s(s) * sdot,                     # alphadot
         a_long * cos(C1 * delta),                                  # vdot
-        a_long * cos(C1 * delta) - vglobaldot_s(s) * sdot,
+        # a_long * cos(C1 * delta) - vglobaldot_s(s) * sdot,
         derD,
         derDelta,
         # (C1 * v * cos(C1 * delta) * derDelta + sin(C1*delta) * a_long * cos(C1 * delta))/lr,    # "vdot = a_long * cos(C1 * delta)"
     )
-
     # constraint on forces
     a_lat = C2 * v * v * delta + a_long * sin(C1 * delta)
 
@@ -215,8 +227,8 @@ def bicycle_model(dt):
     # dist_obs6 = h6_dot + gamma * h6
 
     # Model bounds
-    model.n_min = -4.5  # width of the track [m]
-    model.n_max = 4.5  # width of the track [m]
+    model.n_min = -2.0  # width of the track [m]
+    model.n_max = 2.0  # width of the track [m]
     # model.n_min = -4.0  # width of the track [m]
     # model.n_max = 4.0  # width of the track [m]
 
@@ -230,67 +242,55 @@ def bicycle_model(dt):
     # model.delta_min = -0.27  # minimum steering angle [rad]
     # model.delta_max = 0.27  # maximum steering angle [rad]
 
-    model.delta_min = -30 * DEG2RAD  # minimum steering angle [rad]
-    model.delta_max = 30 * DEG2RAD  # maximum steering angle [rad]
+    model.delta_min = -50 * DEG2RAD  # minimum steering angle [rad]
+    model.delta_max = 50 * DEG2RAD  # maximum steering angle [rad]
 
     # input bounds
-    model.ddelta_min = -1.0  # minimum change rate of stering angle [rad/s]
-    model.ddelta_max = 1.0  # maximum change rate of steering angle [rad/s]
+    model.ddelta_min = -10  # minimum change rate of stering angle [rad/s]
+    model.ddelta_max = 10  # maximum change rate of steering angle [rad/s]
     model.dthrottle_min = -10  # -10.0  # minimum throttle change rate
     model.dthrottle_max = 10  # 10.0  # maximum throttle change rate
 
     # nonlinear constraint
-    constraint.alat_min = -3  # minimum lateral force [m/s^2]
-    constraint.alat_max =  3  # maximum lateral force [m/s^1]
+    constraint.alat_min = -10  # minimum lateral force [m/s^2]
+    constraint.alat_max =  10  # maximum lateral force [m/s^1]
 
     constraint.along_min = -10  # minimum longitudinal force [m/s^2]
-    constraint.along_max = 5  # maximum longitudinal force [m/s^2]
+    constraint.along_max = 10 # maximum longitudinal force [m/s^2]
 
     """ obstacle avoidance """
-    constraint.dist_obs1_min = SAFETY_DISTANCE
-    constraint.dist_obs1_max = 999999
-
-    constraint.dist_obs2_min = SAFETY_DISTANCE
-    constraint.dist_obs2_max = 999999
-
-    constraint.dist_obs3_min = SAFETY_DISTANCE
-    constraint.dist_obs3_max = 999999
-
-    constraint.dist_obs4_min = SAFETY_DISTANCE
-    constraint.dist_obs4_max = 999999
-
-    constraint.dist_obs5_min = SAFETY_DISTANCE
-    constraint.dist_obs5_max = 999999
-
-    constraint.dist_obs6_min = SAFETY_DISTANCE
-    constraint.dist_obs6_max = 999999
-    # constraint.dist_obs1_min = 5.0
+    # constraint.dist_obs1_min = SAFETY_DISTANCE
     # constraint.dist_obs1_max = 999999
 
-    # constraint.dist_obs2_min = 5.0
+    # constraint.dist_obs2_min = SAFETY_DISTANCE
     # constraint.dist_obs2_max = 999999
 
-    # constraint.dist_obs3_min = 5.0
+    # constraint.dist_obs3_min = SAFETY_DISTANCE
     # constraint.dist_obs3_max = 999999
 
-    # constraint.dist_obs4_min = 5.0
+    # constraint.dist_obs4_min = SAFETY_DISTANCE
     # constraint.dist_obs4_max = 999999
 
-    # constraint.dist_obs5_min = 5.0
+    # constraint.dist_obs5_min = SAFETY_DISTANCE
     # constraint.dist_obs5_max = 999999
 
-    # constraint.dist_obs6_min = 5.0
+    # constraint.dist_obs6_min = SAFETY_DISTANCE
     # constraint.dist_obs6_max = 999999
+
+
     """ ------------------ """
 
     # define constraints struct
     # constraint.along = Function("a_lat", [x, u], [a_long])
     # constraint.alat = Function("a_lat", [x, u], [a_lat])
-    constraint.expr = vertcat(a_long, a_lat, n, v, D, delta, dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6)
+    constraint.expr = vertcat(
+        a_long, a_lat, n, v, D, delta, 
+        # dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6
+        )
 
 
     # Define initial conditions
-    model.x0 = np.array([0, 0, 0, 0, 0, 0, 0, 0])
+    model.x0 = np.array([0, 0, 0, 0, 0, 0])
 
     # Define model struct
     params = types.SimpleNamespace()

@@ -289,7 +289,7 @@ class CarlaToRosWaypointConverter(CompatibleNode):
         msg.header.stamp = roscomp.ros_timestamp(self.get_time(), from_sec=True)
         if self.current_route is not None:
             for wp in self.current_route:
-                print("center wp:", wp[0].transform)
+                # print("center wp:", wp[0].transform)
 
                 pose = PoseStamped()
                 pose.pose = trans.carla_transform_to_ros_pose(wp[0].transform)
