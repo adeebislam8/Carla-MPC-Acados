@@ -270,17 +270,28 @@ class LocalPlannerMPC(CompatibleNode):
         """
         with self.data_lock:
             # debug info
-            # self.loginfo("Current speed: {}".format(self._current_speed))
-            # self.loginfo("Current pose: {}".format(self._current_pose)) 
-            # self.loginfo("Current velocity: {}".format(self._current_velocity))
-            # self.loginfo("Target speed: {}".format(self._target_speed))
-            # self.loginfo("Current throttle: {}".format(self._current_throttle))
-            # self.loginfo("Current brake: {}".format(self._current_brake))
-            # self.loginfo("Current steering: {}".format(self._current_steering))
-            # self.loginfo("Current acceleration: {}".format(self._current_accel))
+            self.loginfo("Current speed: {}".format(self._current_speed))
+            self.loginfo("Current pose: {}".format(self._current_pose)) 
+            self.loginfo("Current velocity: {}".format(self._current_velocity))
+            self.loginfo("Target speed: {}".format(self._target_speed))
+            self.loginfo("Current throttle: {}".format(self._current_throttle))
+            self.loginfo("Current brake: {}".format(self._current_brake))
+            self.loginfo("Current steering: {}".format(self._current_steering))
+            self.loginfo("Current acceleration: {}".format(self._current_accel))
 
+            # initiailize the acados problem
+            # self._acados_init()
+            # setup ocp
+            # self._setup_ocp(
+            # solve ocp
 
-            # return
+            # get solution
+
+            # update initial condition
+
+            # draw computed trajectory
+
+            return
 
             # 
 

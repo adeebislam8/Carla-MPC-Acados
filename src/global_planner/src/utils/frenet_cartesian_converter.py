@@ -1,6 +1,6 @@
 # Frenet-Cartesian Converter
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, make_interp_spline
 from scipy.spatial.distance import cdist
 
 """
@@ -23,7 +23,8 @@ class FrenetCartesianConverter:
         
         # Find closest point along the path
         num_points = 1000  # Number of points to sample along the path for finding the closest point
-        s_vals = np.linspace(0, self.x_spline.x[-1], num_points)
+        # s_vals = np.linspace(0, self.x_spline.x[-1], num_points)
+        s_vals = np.linspace(0, self.x_spline.t[-1], num_points)
         path_points = np.column_stack((self.x_spline(s_vals), self.y_spline(s_vals)))
         distances = cdist(path_points, [[x, y]])
         closest_index = np.argmin(distances)
@@ -96,9 +97,11 @@ class FrenetCartesianConverter:
         dy = np.diff(y)
         s = np.zeros(len(x))
         s[1:] = np.cumsum(np.sqrt(dx**2+dy**2))
-        self.x_spline = CubicSpline(s, x)
-        self.y_spline = CubicSpline(s, y)
-    
+        # self.x_spline = CubicSpline(s, x)
+        # self.y_spline = CubicSpline(s, y)
+        print("length of path s:", s[-1])
+        self.x_spline = make_interp_spline(s, x, k=3, bc_type='clamped')
+        self.y_spline = make_interp_spline(s, y, k=3, bc_type='clamped')
     # #converting a list of x,y waypoints to s-d cordiantes
     # def _get_s_d_cordinates(waypoints):
     #     x = [point[0] for point in waypoints]
@@ -115,8 +118,26 @@ class FrenetCartesianConverter:
 if __name__ == "__main__":
     x = [0, 0, 0, 0, 0, 0, 19, 29, 38, 9, 1, -39, 3, 0, 50]
     y = [0, 10, 20, 30, 40, 50, 50, 50, 50, 50, 50, 50, 50, 10, 19]
+    # random waypoints
+    # x = np.random.randint(-50, 50, 20)
+    # y = np.random.randint(-50, 50, 20)
+    # print("x:", x)
+    # print("y:", y)
+    # x = [-13, 7, -49, -8, -9, -34, 1, 44, 22, 41, -26, -35, 13, 8, -10, -6, 37, 4,
+    #     18, -34, 28, 3, -13, -14, -23, 46, 5, 4, -28, 15, -1, -7, 43, 47, -18, -27,
+    #     -35, -50, -34, 18, 17, 30, -26, -34, -24, 36, 43, 12, 6, -29]
+
+    # y = [-4, -5, 44, 3, 0, -45, 4, -45, -19, 18, -42, 33, 39, 0, 0, -32, 7, 27, 49, -42,
+    #     -32, 44, 37, -38, 13, -33, 11, -13, -15, 17, -14, -33, -23, 4, 18, 29, 49, 16,
+    #     13, 25, 34, -6, 11, 32, -17, 23, -38, 39, -5, 29]
+
+
     waypoints = list(zip(x, y))
     f2c = FrenetCartesianConverter(waypoints)
+    print("x_spline:", f2c.x_spline)
+    print("x_spline coefficients:", f2c.x_spline.c)
+    print("x_spline knots:", f2c.x_spline.t)
+    # print("x_spline knots", f2c.x_spline.get_knots())
     cartesian_pose = [-46, 50, 0]
     frenet_pose = f2c.get_frenet(cartesian_pose)
     print("Frenet pose:", frenet_pose)
