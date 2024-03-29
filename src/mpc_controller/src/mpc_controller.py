@@ -67,7 +67,7 @@ class LocalPlannerMPC(CompatibleNode):
         # Fetch the Q and R matrices from parameters
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
-        self.Tf = 2.0
+        self.Tf = 1.5
         self.N = 30
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
@@ -79,7 +79,7 @@ class LocalPlannerMPC(CompatibleNode):
         self._current_pose = None
         self._current_speed = None
         self._current_velocity = None
-        self._target_speed = 35.0       # kph
+        self._target_speed = 100.0       # kph
         self._current_accel = None
         self._current_throttle = None
         self._current_brake = None
@@ -390,7 +390,20 @@ class LocalPlannerMPC(CompatibleNode):
             status = self.acados_solver.solve()
             if status != 0:
                 self.loginfo("acados returned status {}".format(status))
-            
+                if status == 1:
+                    self.loginfo("solver failed")
+                    self.emergency_stop()
+                    self.loginfo("Emergency stop")
+                    return
+                elif status == 2:
+                    self.loginfo("Max number of iterations reached")
+                elif status == 3:
+                    self.loginfo("Minimum step size reached")
+                elif status == 4:
+                    self.loginfo("QP solver failed")
+                    self.emergency_stop()
+                    self.loginfo("Emergency stop")
+                    return
 
             # get solution
             for i in range(self.N + 1):
@@ -420,11 +433,10 @@ class LocalPlannerMPC(CompatibleNode):
                 pose_stamped.pose = pose_msg
                 predicted_path.poses.append(pose_stamped)
 
-            print('          s          n     alpha      v         D     delta')
+            # print('          s          n     alpha      v         D     delta')
             for i in range(0, self.N+1, 1):
                 x = self.acados_solver.get(i, "x")
-                print(f"x{i}: , {x[0]:8.4f}, {x[1]:8.4f}, {x[2]:8.4f}, {x[3]:8.4f}, {x[4]:8.4f}, {x[5]:8.4f}")
-                # update initial condition
+                # print(f"x{i}: , {x[0]:8.4f}, {x[1]:8.4f}, {x[2]:8.4f}, {x[3]:8.4f}, {x[4]:8.4f}, {x[5]:8.4f}")
 
             # self._predicted_path_publisher.publish(predicted_path)
 

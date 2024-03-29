@@ -138,12 +138,12 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     ])
     
     R = np.eye(nu)
-    R[0, 0] = 1e-2
-    R[1, 1] = 1e-3
+    R[0, 0] = 1e-4
+    R[1, 1] = 1e-4
     
     # set terminal cost
     Qe = np.diag([ 
-        1e-5, # s
+        5e-5, # s
         1e-4, # n
         # 0, # n_diff
         1e-5, # alpha
@@ -218,14 +218,14 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     slack_L1_cost = np.array([
         1e-6,
         1e-6,
-        1e-1, ##
+        1e1, ##
         # 1,
         # 1,
     ])
     slack_L2_cost = np.array([
         1e-6,
         1e-6,
-        1e-1, ##
+        1e1, ##
         # 1,
         # 1,
     ])
@@ -253,6 +253,7 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     ocp.solver_options.nlp_solver_type = "SQP_RTI"
     # ocp.solver_options.nlp_solver_type = "SQP"
     ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
+    ocp.solver_options.levenberg_marquardt = 1e-3
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.sim_method_num_stages = 4
     ocp.solver_options.sim_method_num_steps = 4

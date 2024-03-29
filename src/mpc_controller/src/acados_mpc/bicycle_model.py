@@ -237,13 +237,13 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # dist_obs6 = h6_dot + gamma * h6
 
     # Model bounds
-    model.n_min = -1.5  # width of the track [m]
-    model.n_max = 1.5  # width of the track [m]
+    model.n_min = -2.5  # width of the track [m]
+    model.n_max = 2.0  # width of the track [m]
     # model.n_min = -4.0  # width of the track [m]
     # model.n_max = 4.0  # width of the track [m]
 
     model.v_min = 0  # width of the track [m]
-    model.v_max = 50  # width of the track [m]
+    model.v_max = 150  # width of the track [m]
 
     # state bounds
     model.throttle_min = -1.0
@@ -262,8 +262,8 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     model.dthrottle_max = 1 # 10.0  # maximum throttle change rate
 
     # nonlinear constraint
-    constraint.alat_min = -10  # minimum lateral force [m/s^2]
-    constraint.alat_max =  10  # maximum lateral force [m/s^1]
+    constraint.alat_min = -5  # minimum lateral force [m/s^2]
+    constraint.alat_max =  5  # maximum lateral force [m/s^1]
 
     constraint.along_min = -10  # minimum longitudinal force [m/s^2]
     constraint.along_max = 10 # maximum longitudinal force [m/s^2]
