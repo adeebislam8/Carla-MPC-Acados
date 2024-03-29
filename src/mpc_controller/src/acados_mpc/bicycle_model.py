@@ -1,19 +1,23 @@
+# import os
+# import sys
+# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from casadi import *
 # from tracks.readDataFcn import getTrack
-# from control_module.acados.tracks.convert_traj_track import parseReference, parseGlobal
+from utils.convert_traj_track import parseReference, parseGlobal
 import math
 
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 
-def bicycle_model(dt, coeff, knots, degree=3):
+def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # define structs
     constraint = types.SimpleNamespace()
     model = types.SimpleNamespace()
 
     model_name = "Spatialbicycle_model"
 
-    kapparef_s = Function.bspline('kapparef_s', [knots], coeff, [degree], 1)
+    # kapparef_s = Function.bspline('kapparef_s', [knots], coeff, [degree], 1)
 
     # load track parameters
     # [ _, _, _, _, _, s0, _, kapparef] = parseReference(reference_msg)
@@ -25,8 +29,8 @@ def bicycle_model(dt, coeff, knots, degree=3):
 
     ## need curvature (kapparef) spline for global path along s axis
         
-
-
+    _, _, _, dense_s, _, kappa_ref = parseReference(path_msg)
+    kapparef_s = interpolant("kapparef_s", "bspline", [dense_s], kappa_ref)
 
 
 
@@ -57,7 +61,9 @@ def bicycle_model(dt, coeff, knots, degree=3):
     v_diff = MX.sym("v_diff")
     D = MX.sym("D")
     delta = MX.sym("delta")
+    time = MX.sym("time")
     # yaw_rate = MX.sym("yaw_rate")
+    # x = vertcat(s, n, alpha, v, D, delta, time)
     x = vertcat(s, n, alpha, v, D, delta)
 
     # controls
@@ -75,6 +81,9 @@ def bicycle_model(dt, coeff, knots, degree=3):
     Ddot = MX.sym("Ddot")
     deltadot = MX.sym("deltadot")
     # yaw_ratedot = MX.sym("yaw_ratedot")
+    time_dot = MX.sym("time_dot")
+    time_dot = 1
+    # xdot = vertcat(sdot, ndot, alphadot, vdot, Ddot, deltadot, time_dot)
     xdot = vertcat(sdot, ndot, alphadot, vdot, Ddot, deltadot)
 
     # algebraic variables
@@ -150,6 +159,7 @@ def bicycle_model(dt, coeff, knots, degree=3):
         # a_long * cos(C1 * delta) - vglobaldot_s(s) * sdot,
         derD,
         derDelta,
+        # time_dot,
         # (C1 * v * cos(C1 * delta) * derDelta + sin(C1*delta) * a_long * cos(C1 * delta))/lr,    # "vdot = a_long * cos(C1 * delta)"
     )
     # constraint on forces
@@ -227,8 +237,8 @@ def bicycle_model(dt, coeff, knots, degree=3):
     # dist_obs6 = h6_dot + gamma * h6
 
     # Model bounds
-    model.n_min = -2.0  # width of the track [m]
-    model.n_max = 2.0  # width of the track [m]
+    model.n_min = -1.5  # width of the track [m]
+    model.n_max = 1.5  # width of the track [m]
     # model.n_min = -4.0  # width of the track [m]
     # model.n_max = 4.0  # width of the track [m]
 
@@ -242,14 +252,14 @@ def bicycle_model(dt, coeff, knots, degree=3):
     # model.delta_min = -0.27  # minimum steering angle [rad]
     # model.delta_max = 0.27  # maximum steering angle [rad]
 
-    model.delta_min = -50 * DEG2RAD  # minimum steering angle [rad]
-    model.delta_max = 50 * DEG2RAD  # maximum steering angle [rad]
+    model.delta_min = -30 * DEG2RAD  # minimum steering angle [rad]
+    model.delta_max = 30 * DEG2RAD  # maximum steering angle [rad]
 
     # input bounds
-    model.ddelta_min = -10  # minimum change rate of stering angle [rad/s]
-    model.ddelta_max = 10  # maximum change rate of steering angle [rad/s]
-    model.dthrottle_min = -10  # -10.0  # minimum throttle change rate
-    model.dthrottle_max = 10  # 10.0  # maximum throttle change rate
+    model.ddelta_min = -1  # minimum change rate of stering angle [rad/s]
+    model.ddelta_max = 1  # maximum change rate of steering angle [rad/s]
+    model.dthrottle_min = -1  # -10.0  # minimum throttle change rate
+    model.dthrottle_max = 1 # 10.0  # maximum throttle change rate
 
     # nonlinear constraint
     constraint.alat_min = -10  # minimum lateral force [m/s^2]

@@ -83,6 +83,10 @@ class FrenetCartesianConverter:
         dy = self.y_spline.derivative()
         path_angle = np.arctan2(dy(s), dx(s))
         alpha = yaw - path_angle
+        if alpha > np.pi:
+            alpha -= 2*np.pi
+        elif alpha < -np.pi:
+            alpha += 2*np.pi
         return alpha
     
 

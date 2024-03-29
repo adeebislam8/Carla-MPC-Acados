@@ -67,8 +67,8 @@ class LocalPlannerMPC(CompatibleNode):
         # Fetch the Q and R matrices from parameters
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
-        self.Tf = 1.0
-        self.N = 10
+        self.Tf = 2.0
+        self.N = 30
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
         # Log the matrices for verification
@@ -79,7 +79,7 @@ class LocalPlannerMPC(CompatibleNode):
         self._current_pose = None
         self._current_speed = None
         self._current_velocity = None
-        self._target_speed = 20.0
+        self._target_speed = 35.0       # kph
         self._current_accel = None
         self._current_throttle = None
         self._current_brake = None
@@ -91,6 +91,7 @@ class LocalPlannerMPC(CompatibleNode):
 
         self.acados_solver = None
         self.path_initialized = False
+        self._path_msg = None
         # subscribers
         self._odometry_subscriber = self.new_subscription(
             Odometry,
@@ -256,6 +257,7 @@ class LocalPlannerMPC(CompatibleNode):
             self._waypoint_buffer.clear()
             self._waypoints_queue.clear()
             self._waypoints_queue.extend([pose.pose for pose in path_msg.poses])
+            self._path_msg = path_msg
             # self.loginfo("Received path message of length: {}".format(len(path_msg)))
             # self.loginfo("Current waypoints queue length: {}".format(len(self._waypoints_queue)))
             # self.loginfo("Current waypoints buffer length: {}".format(len(self._waypoint_buffer)))
@@ -323,7 +325,7 @@ class LocalPlannerMPC(CompatibleNode):
             # return
             # initiailize the acados problem
             if self.acados_solver is None:
-                self.constraint, self.model, self.acados_solver = acados_settings(self.Tf, self.N, self.spline_coeffs, self.spline_knots, self.spline_degree)
+                self.constraint, self.model, self.acados_solver = acados_settings(self.Tf, self.N, self.spline_coeffs, self.spline_knots, self._path_msg, self.spline_degree)
                 self.loginfo("Initialized acados solver")
 
             # setup ocp
@@ -347,6 +349,7 @@ class LocalPlannerMPC(CompatibleNode):
                     0,                                                       # v
                     0,                                                       # D
                     0,                                                       # delta
+                    # self.current_time + (self.Tf/self.N) * (i+1),                                # time
                     0,                                                       # derD   
                     0,                                                       # derdelta
                 ])
@@ -376,7 +379,8 @@ class LocalPlannerMPC(CompatibleNode):
                 0,                                     # alpha
                 0,                                     # v
                 0,                                     # D
-                0                                      # delta
+                0,                                      # delta
+                # 0,                                      # time
             ])
             self.acados_solver.set(self.N, "yref", yref_N)
             self.acados_solver.constraints_set(0, "lbx", np.array([s, n, alpha, v, D, delta]))
@@ -430,8 +434,8 @@ class LocalPlannerMPC(CompatibleNode):
                 # predicted_path_msg.poses = predicted_path
                 self._predicted_path_publisher.publish(predicted_path)
 
-                # x0 = self.acados_solver.get(1, "x")
-                # u0 = self.acados_solver.get(1, "x")
+                x0 = self.acados_solver.get(1, "x")
+                u0 = self.acados_solver.get(1, "x")
                 # self.accel = x0[6]
                 # print("self.accel: ", self.accel)
 
@@ -440,9 +444,10 @@ class LocalPlannerMPC(CompatibleNode):
                 # self.jerk = u0[2]
                 # print("jerk: ", self.jerk)
 
-                self.target_D = x[4]
-                self.target_delta = x[5]
-
+                self.target_D = x0[4]
+                self.target_delta = x0[5]
+                print("target_D: ", self.target_D)
+                print("target_delta: ", self.target_delta)
                 if self.target_D >= 0:
                     self.target_gas = self.target_D
                     self.target_brake = 0

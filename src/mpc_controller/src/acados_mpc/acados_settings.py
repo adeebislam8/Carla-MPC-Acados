@@ -12,13 +12,13 @@ DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 
 
-def acados_settings(Tf, N, coeffs, knots, degree=3):
+def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     # create render arguments
     ocp = AcadosOcp()
     dt = Tf/N
     # export model
     print("before model")
-    model, constraint = bicycle_model(dt, coeffs, knots, degree)
+    model, constraint = bicycle_model(dt, coeffs, knots, path_msg, degree)
     print("after model")
     # define acados ODE
     model_ac = AcadosModel()
@@ -125,10 +125,10 @@ def acados_settings(Tf, N, coeffs, knots, degree=3):
     # # follows track
     # OBS WITH S CONTROL
     Q = np.diag([ 
-        0.9, # s 
-        10, # n
+        1e-5, # s 
+        1e-4, # n
         # 1e-8, # n_diff
-        0, # alpha
+        1e-5, # alpha
         0, # v
         # 1e0, # v_diff
         0, # D
@@ -138,15 +138,15 @@ def acados_settings(Tf, N, coeffs, knots, degree=3):
     ])
     
     R = np.eye(nu)
-    R[0, 0] = 1e2
-    R[1, 1] = 1e1
+    R[0, 0] = 1e-2
+    R[1, 1] = 1e-3
     
     # set terminal cost
     Qe = np.diag([ 
-        0.9, # s
-        10, # n
+        1e-5, # s
+        1e-4, # n
         # 0, # n_diff
-        0, # alpha
+        1e-5, # alpha
         0, # v
         # 0, # v_diff
         0, # D
@@ -216,16 +216,16 @@ def acados_settings(Tf, N, coeffs, knots, degree=3):
     )
 
     slack_L1_cost = np.array([
-        1e1,
-        1e1,
-        1e1, ##
+        1e-6,
+        1e-6,
+        1e-1, ##
         # 1,
         # 1,
     ])
     slack_L2_cost = np.array([
-        1e1,
-        1e1,
-        1e1, ##
+        1e-6,
+        1e-6,
+        1e-1, ##
         # 1,
         # 1,
     ])
