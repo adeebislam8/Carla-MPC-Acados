@@ -88,6 +88,7 @@ class LocalPlannerMPC(CompatibleNode):
         self._buffer_size = 5
         self._waypoints_queue = collections.deque(maxlen=20000)
         self._waypoint_buffer = collections.deque(maxlen=self._buffer_size)
+        self._global_path_length = None
 
         self.acados_solver = None
         self.path_initialized = False
@@ -272,6 +273,10 @@ class LocalPlannerMPC(CompatibleNode):
             self.loginfo("Spline coefficients: {}".format(self.spline_coeffs))
             self.loginfo("Spline knots: {}".format(self.spline_knots))
             self.path_initialized = True
+            self._global_path_length = dense_s[-1]
+
+            self.acados_solver = None
+            self.loginfo("Acados Reset")
 
     ## Todo: Write border publishing node and implement this function ##
     def border_cb(self, path_msg):
@@ -337,13 +342,20 @@ class LocalPlannerMPC(CompatibleNode):
                 D = self._current_throttle
 
             s, n, alpha, v, D, delta = frenet_pose.s, frenet_pose.d, frenet_pose.yaw_s, self._current_speed, D, self._current_steering
-            
+            print("s: ", s)
+            print("n: ", n) 
+            print("global_path_length: ", self._global_path_length)
             # x = [s, n, alpha, v, D, delta]
             self.acados_solver.set(0, "x", np.array([s, n, alpha, v, D, delta]))
-
+            distance2stop = 0.5 * v
             for i in range(1, self.N):
+                s_target = s + self._target_speed * (self.Tf / self.N) * (i+1)
+                if s_target > self._global_path_length:
+                    s_target = self._global_path_length - distance2stop
+                # print("s_target_{}: {}".format(i,s_target))
+
                 yref = np.array([
-                    s + self._target_speed * (self.Tf / self.N) * (i+1),     # s
+                    s_target,     # s
                     0,                                                       # n
                     0,                                                       # alpha
                     0,                                                       # v
@@ -372,9 +384,12 @@ class LocalPlannerMPC(CompatibleNode):
                     self.model.delta_max
                 ]))
 
-            
+            s_target = s + self._target_speed * self.Tf
+            if s_target > self._global_path_length:
+                s_target = self._global_path_length - distance2stop
+            # print("s_target_N: ", s_target)
             yref_N = np.array([
-                s + self._target_speed * self.Tf,     # s
+                s_target,     # s
                 0,                                     # n
                 0,                                     # alpha
                 0,                                     # v
@@ -401,7 +416,7 @@ class LocalPlannerMPC(CompatibleNode):
                     self.loginfo("Minimum step size reached")
                 elif status == 4:
                     self.loginfo("QP solver failed")
-                    self.emergency_stop()
+                    # self.emergency_stop()
                     self.loginfo("Emergency stop")
                     return
 
@@ -458,8 +473,8 @@ class LocalPlannerMPC(CompatibleNode):
 
                 self.target_D = x0[4]
                 self.target_delta = x0[5]
-                print("target_D: ", self.target_D)
-                print("target_delta: ", self.target_delta)
+                # print("target_D: ", self.target_D)
+                # print("target_delta: ", self.target_delta)
                 if self.target_D >= 0:
                     self.target_gas = self.target_D
                     self.target_brake = 0
@@ -535,7 +550,7 @@ class LocalPlannerMPC(CompatibleNode):
         control_msg = CarlaEgoVehicleControl()
         control_msg.steer = 0.0
         control_msg.throttle = 0.0
-        control_msg.brake = 1.0
+        control_msg.brake = 0.9
         control_msg.hand_brake = False
         control_msg.manual_gear_shift = False
         self._control_cmd_publisher.publish(control_msg)

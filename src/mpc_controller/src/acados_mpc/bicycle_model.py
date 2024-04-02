@@ -17,7 +17,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     model_name = "Spatialbicycle_model"
 
-    # kapparef_s = Function.bspline('kapparef_s', [knots], coeff, [degree], 1)
+    kapparef_s = Function.bspline('kapparef_s', [knots], coeff, [degree], 1)
 
     # load track parameters
     # [ _, _, _, _, _, s0, _, kapparef] = parseReference(reference_msg)
@@ -29,8 +29,8 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     ## need curvature (kapparef) spline for global path along s axis
         
-    _, _, _, dense_s, _, kappa_ref = parseReference(path_msg)
-    kapparef_s = interpolant("kapparef_s", "bspline", [dense_s], kappa_ref)
+    # _, _, _, dense_s, _, kappa_ref = parseReference(path_msg)
+    # kapparef_s = interpolant("kapparef_s", "bspline", [dense_s], kappa_ref)
 
 
 
@@ -237,7 +237,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # dist_obs6 = h6_dot + gamma * h6
 
     # Model bounds
-    model.n_min = -2.5  # width of the track [m]
+    model.n_min = -1.7  # width of the track [m]
     model.n_max = 2.0  # width of the track [m]
     # model.n_min = -4.0  # width of the track [m]
     # model.n_max = 4.0  # width of the track [m]

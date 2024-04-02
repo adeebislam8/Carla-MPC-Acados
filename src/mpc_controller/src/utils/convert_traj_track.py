@@ -73,7 +73,13 @@ def parseReference(msg: Path):
     # Generate a dense list of 's' values for interpolation
     # x_spline = interp.CubicSpline(ds, xs, bc_type="clamped")
     # y_spline = interp.CubicSpline(ds, ys, bc_type="clamped")
-    dense_s = np.linspace(ds[0], ds[-1], int(ds[-1]/0.1)) # Change 1000 to the density you want
+
+    # we need constant no of points to ensure constant length of knots and coefficients
+    # num_points = 1000
+    # dense_s = np.linspace(ds[0], ds[-1], num_points) 
+
+    density = 0.1
+    dense_s = np.linspace(ds[0], ds[-1], int(ds[-1]/density)) # Change 1000 to the density you want
 
     # Get first derivatives
     dx_ds = x_spline.derivative()(dense_s)

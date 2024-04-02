@@ -65,7 +65,7 @@ class FrenetCartesianConverter:
         path_yaw = np.arctan2(dy, dx)
         
         # Calculate the perpendicular direction (normal to the path)
-        norm_direction = np.array([-dy, dx]) / np.sqrt(dx**2 + dy**2)
+        norm_direction = np.array([-dy, dx]) / (np.sqrt(dx**2 + dy**2) + 1e-6)
         
         # Calculate the Cartesian position offset by Frenet d
         x = x_path + d * norm_direction[0]

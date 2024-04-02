@@ -55,75 +55,10 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     ocp.cost.cost_type = "LINEAR_LS"
     ocp.cost.cost_type_e = "LINEAR_LS"
     unscale = N / Tf
-    # unscale = 1.0
 
-    # # car obstacle
-    # # set cost
-    # Q = np.diag([ 
-    #     0, # s 
-    #     0, # n
-    #     5e-4, # n_diff
-    #     0, # alpha
-    #     0, # v
-    #     1e-4, # v_diff
-    #     0, # D
-    #     0, # delta
-    #     0, # yaw_rate
-
-    # ])
-    
-    # R = np.eye(nu)
-    # R[0, 0] = 1e-2
-    # R[1, 1] = 1e-1
-    
-    # # set terminal cost
-    # Qe = np.diag([ 
-    #     0, # s
-    #     0, # n
-    #     5e-4, # n_diff
-    #     0, # alpha
-    #     0, # v
-    #     1e-4, # v_diff
-    #     0, # D
-    #     0, # delta
-    #     0, # yaw_rate
-    # ])
-    # car obstacle
-
-    """ obstacle avoidance v2"""
-    # Q = np.diag([ 
-    #     1e-8, # s 
-    #     1e-9, # n
-    #     0, # n_diff
-    #     1e-0, # alpha
-    #     0, # v
-    #     0, # v_diff
-    #     0, # D
-    #     0, # delta
-    #     # 0, # yaw_rate
-
-    # ])
-    
-    # R = np.eye(nu)
-    # R[0, 0] = 1e0
-    # R[1, 1] = 1e1
-    
-    # # set terminal cost
-    # Qe = np.diag([ 
-    #     1e-2, # s
-    #     1e-5, # n
-    #     0, # n_diff
-    #     1e-0, # alpha
-    #     0, # v
-    #     0, # v_diff
-    #     0, # D
-    #     0, # delta
-    #     # 0, # yaw_rate
-    # ])
     """ ------------------ """
-    """ V3 """
-    # # follows track
-    # OBS WITH S CONTROL
+    """ IMPORTANT: SET WEIGHTS TO SMALL VALUES TO AVOID NUMERICAL ISSUES """
+
     Q = np.diag([ 
         1e-5, # s 
         1e-4, # n
@@ -138,8 +73,8 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     ])
     
     R = np.eye(nu)
-    R[0, 0] = 1e-4
-    R[1, 1] = 1e-4
+    R[0, 0] = 2e-4
+    R[1, 1] = 2e-4
     
     # set terminal cost
     Qe = np.diag([ 
@@ -254,12 +189,12 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     # ocp.solver_options.nlp_solver_type = "SQP"
     ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
     ocp.solver_options.levenberg_marquardt = 1e-3
-    ocp.solver_options.integrator_type = "ERK"
-    ocp.solver_options.sim_method_num_stages = 4
-    ocp.solver_options.sim_method_num_steps = 4
+    # ocp.solver_options.integrator_type = "ERK"
+    # ocp.solver_options.sim_method_num_stages = 4
+    # ocp.solver_options.sim_method_num_steps = 4
     # ocp.solver_options.nlp_solver_step_length = 0.05
-    ocp.solver_options.nlp_solver_max_iter = 100
-    ocp.solver_options.tol = 1e-3
+    # ocp.solver_options.nlp_solver_max_iter = 100
+    # ocp.solver_options.tol = 1e-3
     # ocp.solver_options.nlp_solver_tol_comp = 1e-1
 
     # create solver
