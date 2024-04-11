@@ -51,7 +51,7 @@ class CarlaToRosWaypointConverter(CompatibleNode):
     - the hero vehicle appears
     - a new goal is set
     """
-    WAYPOINT_DISTANCE = 2.0
+    WAYPOINT_DISTANCE = 100.0
 
     def __init__(self):
         """
@@ -260,6 +260,7 @@ class CarlaToRosWaypointConverter(CompatibleNode):
                 distance = math.sqrt(dx * dx + dy * dy)
                 if distance > self.WAYPOINT_DISTANCE:
                     self.loginfo("Ego vehicle was repositioned.")
+                    self.loginfo("distance: {}".format(distance))   
                     self.reroute()
             self.ego_vehicle_location = current_location
 
