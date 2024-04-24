@@ -8,6 +8,8 @@
 
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/pcl_recorder:$CMAKE_PREFIX_PATH"
+export LD_LIBRARY_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/pcl_recorder/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/pcl_recorder/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD='/home/adeeb/carla-ros-bridge/catkin_ws/build/pcl_recorder'
 export ROSLISP_PACKAGE_DIRECTORIES="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/pcl_recorder/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
 export ROS_PACKAGE_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/src/ros-bridge/pcl_recorder:$ROS_PACKAGE_PATH"

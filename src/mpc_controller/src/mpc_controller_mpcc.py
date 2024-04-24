@@ -18,12 +18,15 @@ Todo:
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import carla
 
+import carla_common.transforms as trans
 import collections
 import math
 import threading
 
 import numpy as np
+import rospy
 import ros_compatibility as roscomp
 from ros_compatibility.node import CompatibleNode
 from ros_compatibility.qos import QoSProfile, DurabilityPolicy
@@ -43,6 +46,16 @@ from global_planner.msg import FrenetPose, WorldPose
 from acados_mpc.acados_settings_mpcc import acados_settings
 from utils.convert_traj_track import parseReference
 from scipy.interpolate import make_interp_spline
+
+class Obstacle:
+    def __init__(self):
+        self.id = -1 # actor id
+        self.vx = 0.0 # velocity in x direction
+        self.vy = 0.0 # velocity in y direction
+        self.vz = 0.0 # velocity in z direction
+        self.ros_transform = None # transform of the obstacle in ROS coordinate
+        self.carla_transform = None # transform of the obstacle in Carla world coordinate
+        self.bbox = None # Bounding box w.r.t ego vehicle's local frame
 
 class LocalPlannerMPC(CompatibleNode):
     """
@@ -93,6 +106,7 @@ class LocalPlannerMPC(CompatibleNode):
         self.acados_solver = None
         self.path_initialized = False
         self._path_msg = None
+        self.time = rospy.get_time()
         # subscribers
         self._odometry_subscriber = self.new_subscription(
             Odometry,
@@ -158,6 +172,67 @@ class LocalPlannerMPC(CompatibleNode):
         # initializing controller
         # self._vehicle_controller = VehicleMPCController(
         #     self)
+
+    # def get_obstacles(self, location, range):
+    #     """
+    #     Get a list of obstacles that are located within a certain distance from the location.
+        
+    #     :param      location: queried location
+    #     :param      range: search distance from the queried location
+    #     :type       location: geometry_msgs/Point
+    #     :type       range: float or double
+    #     :return:    None
+    #     :rtype:     None
+    #     """
+    #     self._obstacles = []
+    #     actor_list = self.world.get_actors()
+    #     for actor in actor_list:
+    #         if "role_name" in actor.attributes:
+    #             if actor.attributes["role_name"] == 'autopilot' or actor.attributes["role_name"] == "static":
+    #                 carla_transform = actor.get_transform()
+    #                 ros_transform = trans.carla_transform_to_ros_pose(carla_transform)
+    #                 x = ros_transform.position.x
+    #                 y = ros_transform.position.y
+    #                 z = ros_transform.position.z 
+    #                 distance = math.sqrt((x-location.x)**2 + (y-location.y)**2)
+    #                 if distance < range:
+    #                     # print("obs distance: {}").format(distance)
+    #                     ob = Obstacle()
+    #                     ob.id = actor.id
+    #                     ob.carla_transform = carla_transform
+    #                     ob.ros_transform = ros_transform
+    #                     ob.vx = actor.get_velocity().x
+    #                     ob.vy = actor.get_velocity().y
+    #                     ob.vz = actor.get_velocity().z
+    #                     ob.bbox = actor.bounding_box # in local frame
+    #                     # print("x: {}, y: {}, z:{}").format(x, y, z)
+    #                     # print("bbox x:{} y:{} z:{} ext: {} {} {}".format(ob.bbox.location.x, ob.bbox.location.y, ob.bbox.location.z, ob.bbox.extent.x, ob.bbox.extent.y, ob.bbox.extent.z))
+    #                     self._obstacles.append(ob)
+
+    # def check_obstacle(self, point, obstacle):
+    #     """
+    #     Check whether a point is inside the bounding box of the obstacle
+
+    #     :param      point: a location to check the collision (in ROS frame)
+    #     :param      obstacle: an obstacle for collision check
+    #     :type       point: geometry_msgs/Point
+    #     :type       obstacle: object Obstacle
+    #     :return:    true or false
+    #     :rtype:     boolean   
+    #     """
+    #     carla_location = carla.Location()
+    #     carla_location.x = point.x
+    #     carla_location.y = -point.y
+    #     carla_location.z = point.z
+        
+    #     vertices = obstacle.bbox.get_world_vertices(obstacle.carla_transform)
+        
+    #     vx = [v.x for v in vertices]
+    #     vy = [v.y for v in vertices]
+    #     vz = [v.z for v in vertices]
+    #     return carla_location.x >= min(vx) and carla_location.x <= max(vx) \
+    #             and carla_location.y >= min(vy) and carla_location.y <= max(vy) \
+    #             and carla_location.z >= min(vz) and carla_location.z <= max(vz) 
 
     def odometry_cb(self, odometry_msg):
         # self.loginfo("Received odometry message")
@@ -310,6 +385,10 @@ class LocalPlannerMPC(CompatibleNode):
 
         """
         with self.data_lock:
+            time = rospy.get_time()
+            time_diff = time - self.time
+            self.time = time
+            self.loginfo("Time diff: {}".format(time_diff))
         # debug info
             while not self.path_initialized:
                 self.loginfo("Waiting for path to be initialized")
@@ -333,6 +412,9 @@ class LocalPlannerMPC(CompatibleNode):
                 self.constraint, self.model, self.acados_solver = acados_settings(self.Tf, self.N, self.spline_coeffs, self.spline_knots, self._path_msg, self.spline_degree)
                 self.loginfo("Initialized acados solver")
 
+            # print obstacle
+            # self.get_obstacles(self._current_pose.position, 10)
+            # print("Obstacles: ", self._obstacles)
             # setup ocp
             frenet_pose = self._get_frenet_pose(self._current_pose)
             # self.loginfo("Frenet pose in run step: {}".format(frenet_pose))
@@ -388,7 +470,7 @@ class LocalPlannerMPC(CompatibleNode):
             s_target = s + self._target_speed * self.Tf
             if s_target > self._global_path_length:
                 s_target = self._global_path_length - distance2stop
-            # print("s_target_N: ", s_target)
+            # print("s_target_N: ", s_target)111
             yref_N = np.array([
                 # -s,
                 # (self._global_path_length - distance2stop),

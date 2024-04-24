@@ -51,7 +51,7 @@ class CarlaToRosWaypointConverter(CompatibleNode):
     - the hero vehicle appears
     - a new goal is set
     """
-    WAYPOINT_DISTANCE = 2.0
+    WAYPOINT_DISTANCE = 100.0
 
     def __init__(self):
         """
@@ -93,7 +93,10 @@ class CarlaToRosWaypointConverter(CompatibleNode):
 
         # set initial goal
         self.goal = self.world.get_map().get_spawn_points()[0]
-
+        # speedway goal
+        # speedway_goal = carla.Location(x=-64.6, y=24.4, z=0.59)
+        # self.goal.location = speedway_goal
+        print("Goal:", self.goal)
         self.current_route = None
         self.goal_subscriber = self.new_subscription(
             PoseStamped,
@@ -260,6 +263,7 @@ class CarlaToRosWaypointConverter(CompatibleNode):
                 distance = math.sqrt(dx * dx + dy * dy)
                 if distance > self.WAYPOINT_DISTANCE:
                     self.loginfo("Ego vehicle was repositioned.")
+                    self.loginfo("distance: {}".format(distance))   
                     self.reroute()
             self.ego_vehicle_location = current_location
 
@@ -289,7 +293,7 @@ class CarlaToRosWaypointConverter(CompatibleNode):
         msg.header.stamp = roscomp.ros_timestamp(self.get_time(), from_sec=True)
         if self.current_route is not None:
             for wp in self.current_route:
-                print("center wp:", wp[0].transform)
+                # print("center wp:", wp[0].transform)
 
                 pose = PoseStamped()
                 pose.pose = trans.carla_transform_to_ros_pose(wp[0].transform)

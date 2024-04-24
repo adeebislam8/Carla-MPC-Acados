@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_spectator_camera/lib/carla_spectator_camera/carla_spectator_camera.py

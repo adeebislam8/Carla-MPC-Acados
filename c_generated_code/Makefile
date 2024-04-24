@@ -45,6 +45,15 @@ MODEL_OBJ := $(MODEL_SRC:.c=.o)
 OCP_SRC=
 OCP_SRC+= Spatialbicycle_model_constraints/Spatialbicycle_model_constr_h_fun_jac_uxt_zt.c
 OCP_SRC+= Spatialbicycle_model_constraints/Spatialbicycle_model_constr_h_fun.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_0_fun.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_0_fun_jac.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_0_fun_jac_hess.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_fun.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_fun_jac.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_fun_jac_hess.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_e_fun.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_e_fun_jac.c
+OCP_SRC+= Spatialbicycle_model_cost/Spatialbicycle_model_cost_ext_cost_e_fun_jac_hess.c
 
 OCP_SRC+= acados_solver_Spatialbicycle_model.c
 OCP_OBJ := $(OCP_SRC:.c=.o)

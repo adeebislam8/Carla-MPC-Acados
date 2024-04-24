@@ -34,9 +34,9 @@
 #include "acados_c/sim_interface.h"
 #include "acados_c/external_function_interface.h"
 
-#define SPATIALBICYCLE_MODEL_NX     6
+#define SPATIALBICYCLE_MODEL_NX     7
 #define SPATIALBICYCLE_MODEL_NZ     0
-#define SPATIALBICYCLE_MODEL_NU     2
+#define SPATIALBICYCLE_MODEL_NU     3
 #define SPATIALBICYCLE_MODEL_NP     0
 
 #ifdef __cplusplus

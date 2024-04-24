@@ -9,6 +9,7 @@
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ros_scenario_runner:$CMAKE_PREFIX_PATH"
 export LD_LIBRARY_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ros_scenario_runner/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ros_scenario_runner/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD='/home/adeeb/carla-ros-bridge/catkin_ws/build/carla_ros_scenario_runner'
 export PYTHONPATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ros_scenario_runner/lib/python3/dist-packages:$PYTHONPATH"
 export ROSLISP_PACKAGE_DIRECTORIES="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ros_scenario_runner/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"

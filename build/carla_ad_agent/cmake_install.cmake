@@ -151,7 +151,6 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/carla_ad_agent" TYPE PROGRAM FILES
     "/home/adeeb/carla-ros-bridge/catkin_ws/src/ros-bridge/carla_ad_agent/src/carla_ad_agent/ad_agent.py"
     "/home/adeeb/carla-ros-bridge/catkin_ws/src/ros-bridge/carla_ad_agent/src/carla_ad_agent/local_planner.py"
-    "/home/adeeb/carla-ros-bridge/catkin_ws/src/ros-bridge/carla_ad_agent/src/carla_ad_agent/local_planner_mpc.py"
     )
 endif()
 

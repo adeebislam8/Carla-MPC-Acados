@@ -1,0 +1,8 @@
+prefix=/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/nonlinear_mpc_casadi
+
+Name: nonlinear_mpc_casadi
+Description: Description of nonlinear_mpc_casadi
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

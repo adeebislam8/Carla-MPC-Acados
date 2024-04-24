@@ -8,6 +8,8 @@
 
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ad_demo:$CMAKE_PREFIX_PATH"
+export LD_LIBRARY_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ad_demo/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ad_demo/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD='/home/adeeb/carla-ros-bridge/catkin_ws/build/carla_ad_demo'
 export ROSLISP_PACKAGE_DIRECTORIES="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ad_demo/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
 export ROS_PACKAGE_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/src/ros-bridge/carla_ad_demo:$ROS_PACKAGE_PATH"

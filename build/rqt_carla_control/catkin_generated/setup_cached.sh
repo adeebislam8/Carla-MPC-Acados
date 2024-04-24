@@ -9,7 +9,8 @@
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/rqt_carla_control:$CMAKE_PREFIX_PATH"
 export LD_LIBRARY_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/rqt_carla_control/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/rqt_carla_control/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD='/home/adeeb/carla-ros-bridge/catkin_ws/build/rqt_carla_control'
-export PYTHONPATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/rqt_carla_control/lib/python3/dist-packages:/home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/python3/dist-packages:$PYTHONPATH"
+export PYTHONPATH="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/rqt_carla_control/lib/python3/dist-packages:$PYTHONPATH"
 export ROSLISP_PACKAGE_DIRECTORIES="/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/rqt_carla_control/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
 export ROS_PACKAGE_PATH="/home/adeeb/carla-ros-bridge/catkin_ws/src/ros-bridge/rqt_carla_control:$ROS_PACKAGE_PATH"

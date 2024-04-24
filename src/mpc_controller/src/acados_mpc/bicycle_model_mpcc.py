@@ -9,7 +9,7 @@ import math
 
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
-
+DIST2STOP = 15
 def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # define structs
     constraint = types.SimpleNamespace()
@@ -18,7 +18,10 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     model_name = "Spatialbicycle_model"
 
     kapparef_s = Function.bspline('kapparef_s', [knots], coeff, [degree], 1)
+    path_length = knots[-1]
+    # path_length = 200
 
+    print("path_length: ", path_length)
     # load track parameters
     # [ _, _, _, _, _, s0, _, kapparef] = parseReference(reference_msg)
     # kapparef_s = interpolant("kapparef_s", "bspline", [s0], kapparef)
@@ -242,8 +245,11 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # model.n_max = 4.0  # width of the track [m]
 
     model.v_min = 0  # width of the track [m]
-    model.v_max = 200  # width of the track [m]
+    model.v_max = path_length  # width of the track [m]
+    # model.v_max = 200  # width of the track [m]
 
+    # model.s_max = 1000
+    # model.s_min = -1
     # state bounds
     model.throttle_min = -1.0
     model.throttle_max = 1.0
@@ -294,8 +300,12 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # define constraints struct
     # constraint.along = Function("a_lat", [x, u], [a_long])
     # constraint.alat = Function("a_lat", [x, u], [a_lat])
+    # constraint.expr = vertcat(
+    #     a_long, a_lat, n, v, D, delta, 
+    #     # dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6
+    #     )
     constraint.expr = vertcat(
-        a_long, a_lat, n, v, D, delta, 
+        a_long, a_lat, n, s, D, delta, 
         # dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6
         )
 
@@ -308,15 +318,16 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     r1 = 1e-2
     r2 = 5e-4
     r3 = 2e-4
-    q1 = 0
+    q1 = 1e-3
     q2 = 0
     model.cost_expr_ext_cost = (
-        ql * (s - theta) ** 2
-        + qc * n**2
-        - gamma * derTheta
-        + r1 * derD**2
-        + r2 * derDelta**2
-        + r3 * derTheta**2
+        (ql * (s - theta) ** 2) * fmax(0, sign(path_length - s - DIST2STOP))
+        + qc * n**2 * fmax(0, sign(path_length - s - DIST2STOP))
+        - gamma * derTheta * fmax(0, sign(path_length - s - DIST2STOP))
+        + r1 * derD**2 * fmax(0, sign(path_length - s - DIST2STOP))
+        + r2 * derDelta**2 * fmax(0, sign(path_length - s - DIST2STOP))
+        + r3 * derTheta**2 * fmax(0, sign(path_length - s - DIST2STOP))
+        # + q1 * fmax(0,s + 50 - path_length) ** 2
         # + q1 * a_long**2
         # + q2 * a_lat**2
     )

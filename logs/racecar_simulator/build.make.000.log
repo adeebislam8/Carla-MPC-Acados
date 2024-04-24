@@ -1,0 +1,14 @@
+[35m[1mScanning dependencies of target racecar_simulator[0m
+[ 12%] [32mBuilding CXX object CMakeFiles/racecar_simulator.dir/src/ackermann_kinematics.cpp.o[0m
+[ 37%] [32mBuilding CXX object CMakeFiles/racecar_simulator.dir/src/distance_transform.cpp.o[0m
+[ 37%] [32mBuilding CXX object CMakeFiles/racecar_simulator.dir/src/scan_simulator_2d.cpp.o[0m
+[ 50%] [32m[1mLinking CXX static library libracecar_simulator.a[0m
+[ 50%] Built target racecar_simulator
+[35m[1mScanning dependencies of target simulate[0m
+[35m[1mScanning dependencies of target distance_transform_visualizer[0m
+[ 62%] [32mBuilding CXX object CMakeFiles/distance_transform_visualizer.dir/node/distance_transform_visualizer.cpp.o[0m
+[ 75%] [32mBuilding CXX object CMakeFiles/simulate.dir/node/simulate.cpp.o[0m
+[ 87%] [32m[1mLinking CXX executable /home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/racecar_simulator/lib/racecar_simulator/distance_transform_visualizer[0m
+[ 87%] Built target distance_transform_visualizer
+[100%] [32m[1mLinking CXX executable /home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/racecar_simulator/lib/racecar_simulator/simulate[0m
+[100%] Built target simulate

@@ -1,6 +1,0 @@
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/global_planner/cmake/global_plannerConfig-version.cmake
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/global_planner/cmake/global_plannerConfig.cmake
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/python3/dist-packages/global_planner/__init__.py
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/global_planner/global_path_publisher.py
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/global_planner/cmake.lock
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/pkgconfig/global_planner.pc

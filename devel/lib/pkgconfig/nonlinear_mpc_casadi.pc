@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/nonlinear_mpc_casadi/lib/pkgconfig/nonlinear_mpc_casadi.pc

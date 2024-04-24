@@ -93,7 +93,10 @@ class CarlaToRosWaypointConverter(CompatibleNode):
 
         # set initial goal
         self.goal = self.world.get_map().get_spawn_points()[0]
-
+        # speedway goal
+        # speedway_goal = carla.Location(x=-64.6, y=24.4, z=0.59)
+        # self.goal.location = speedway_goal
+        print("Goal:", self.goal)
         self.current_route = None
         self.goal_subscriber = self.new_subscription(
             PoseStamped,

@@ -34,7 +34,7 @@ add_custom_target(_global_planner_generate_messages_check_deps_${_filename}
 
 get_filename_component(_filename "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv" NAME_WE)
 add_custom_target(_global_planner_generate_messages_check_deps_${_filename}
-  COMMAND ${CATKIN_ENV} ${PYTHON_EXECUTABLE} ${GENMSG_CHECK_DEPS_SCRIPT} "global_planner" "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv" "global_planner/FrenetPose:global_planner/WorldPose"
+  COMMAND ${CATKIN_ENV} ${PYTHON_EXECUTABLE} ${GENMSG_CHECK_DEPS_SCRIPT} "global_planner" "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv" "global_planner/WorldPose:global_planner/FrenetPose"
 )
 
 #
@@ -66,7 +66,7 @@ _generate_srv_cpp(global_planner
 _generate_srv_cpp(global_planner
   "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv"
   "${MSG_I_FLAGS}"
-  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg"
+  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg"
   ${CATKIN_DEVEL_PREFIX}/${gencpp_INSTALL_DIR}/global_planner
 )
 
@@ -123,7 +123,7 @@ _generate_srv_eus(global_planner
 _generate_srv_eus(global_planner
   "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv"
   "${MSG_I_FLAGS}"
-  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg"
+  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg"
   ${CATKIN_DEVEL_PREFIX}/${geneus_INSTALL_DIR}/global_planner
 )
 
@@ -180,7 +180,7 @@ _generate_srv_lisp(global_planner
 _generate_srv_lisp(global_planner
   "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv"
   "${MSG_I_FLAGS}"
-  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg"
+  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg"
   ${CATKIN_DEVEL_PREFIX}/${genlisp_INSTALL_DIR}/global_planner
 )
 
@@ -237,7 +237,7 @@ _generate_srv_nodejs(global_planner
 _generate_srv_nodejs(global_planner
   "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv"
   "${MSG_I_FLAGS}"
-  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg"
+  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg"
   ${CATKIN_DEVEL_PREFIX}/${gennodejs_INSTALL_DIR}/global_planner
 )
 
@@ -294,7 +294,7 @@ _generate_srv_py(global_planner
 _generate_srv_py(global_planner
   "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/srv/World2FrenetService.srv"
   "${MSG_I_FLAGS}"
-  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg"
+  "/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/WorldPose.msg;/home/adeeb/carla-ros-bridge/catkin_ws/src/global_planner/msg/FrenetPose.msg"
   ${CATKIN_DEVEL_PREFIX}/${genpy_INSTALL_DIR}/global_planner
 )
 

@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/nonlinear_mpc_casadi/share/nonlinear_mpc_casadi/cmake/nonlinear_mpc_casadiConfig-version.cmake

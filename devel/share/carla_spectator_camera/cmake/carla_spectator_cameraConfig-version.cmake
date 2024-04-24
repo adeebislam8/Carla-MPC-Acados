@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_spectator_camera/share/carla_spectator_camera/cmake/carla_spectator_cameraConfig-version.cmake

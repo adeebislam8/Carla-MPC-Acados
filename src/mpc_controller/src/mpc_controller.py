@@ -79,7 +79,7 @@ class LocalPlannerMPC(CompatibleNode):
         self._current_pose = None
         self._current_speed = None
         self._current_velocity = None
-        self._target_speed = 100.0       # kph
+        self._target_speed = 120.0       # kph
         self._current_accel = None
         self._current_throttle = None
         self._current_brake = None

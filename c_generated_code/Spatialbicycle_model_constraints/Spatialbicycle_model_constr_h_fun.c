@@ -50,12 +50,12 @@ extern "C" {
   #endif
 #endif
 
-static const casadi_int casadi_s0[10] = {6, 1, 0, 6, 0, 1, 2, 3, 4, 5};
-static const casadi_int casadi_s1[6] = {2, 1, 0, 2, 0, 1};
+static const casadi_int casadi_s0[11] = {7, 1, 0, 7, 0, 1, 2, 3, 4, 5, 6};
+static const casadi_int casadi_s1[7] = {3, 1, 0, 3, 0, 1, 2};
 static const casadi_int casadi_s2[3] = {0, 0, 0};
 static const casadi_int casadi_s3[9] = {5, 1, 0, 5, 0, 1, 2, 3, 4};
 
-/* Spatialbicycle_model_constr_h_fun:(i0[6],i1[2],i2[],i3[])->(o0[5]) */
+/* Spatialbicycle_model_constr_h_fun:(i0[7],i1[3],i2[],i3[])->(o0[5]) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
   casadi_real w0, w1, w2, w3, w4;
   /* #0: @0 = 0.28 */

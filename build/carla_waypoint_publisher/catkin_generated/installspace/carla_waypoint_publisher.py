@@ -79,8 +79,7 @@ class CarlaToRosWaypointConverter(CompatibleNode):
         self.current_route = None
         self.goal_subscriber = self.new_subscription(
             PoseStamped,
-            # "/carla/{}/goal".format(self.role_name),
-            "/move_base_simple/goal",
+            "/carla/{}/goal".format(self.role_name),
             self.on_goal,
             qos_profile=10)
 

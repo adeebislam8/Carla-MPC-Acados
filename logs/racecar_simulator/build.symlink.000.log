@@ -1,0 +1,5 @@
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/racecar_simulator/cmake/racecar_simulatorConfig.cmake
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/racecar_simulator/cmake/racecar_simulatorConfig-version.cmake
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/racecar_simulator/simulate
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/racecar_simulator/distance_transform_visualizer
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/pkgconfig/racecar_simulator.pc

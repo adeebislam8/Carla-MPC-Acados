@@ -40,6 +40,7 @@
 // example specific
 #include "Spatialbicycle_model_model/Spatialbicycle_model_model.h"
 #include "Spatialbicycle_model_constraints/Spatialbicycle_model_constraints.h"
+#include "Spatialbicycle_model_cost/Spatialbicycle_model_cost.h"
 
 
 
@@ -146,15 +147,15 @@ void Spatialbicycle_model_acados_create_1_set_plan(ocp_nlp_plan_t* nlp_solver_pl
     *  plan
     ************************************************/
 
-    nlp_solver_plan->nlp_solver = SQP;
+    nlp_solver_plan->nlp_solver = SQP_RTI;
 
     nlp_solver_plan->ocp_qp_solver_plan.qp_solver = PARTIAL_CONDENSING_HPIPM;
 
-    nlp_solver_plan->nlp_cost[0] = LINEAR_LS;
+    nlp_solver_plan->nlp_cost[0] = EXTERNAL;
     for (int i = 1; i < N; i++)
-        nlp_solver_plan->nlp_cost[i] = LINEAR_LS;
+        nlp_solver_plan->nlp_cost[i] = EXTERNAL;
 
-    nlp_solver_plan->nlp_cost[N] = LINEAR_LS;
+    nlp_solver_plan->nlp_cost[N] = EXTERNAL;
 
     for (int i = 0; i < N; i++)
     {
@@ -235,7 +236,7 @@ ocp_nlp_dims* Spatialbicycle_model_acados_create_2_create_and_set_dimensions(Spa
     nbx[0] = NBX0;
     nsbx[0] = 0;
     ns[0] = NS0;
-    nbxe[0] = 6;
+    nbxe[0] = 7;
     ny[0] = NY0;
     nh[0] = NH0;
     nsh[0] = NSH0;
@@ -281,9 +282,6 @@ ocp_nlp_dims* Spatialbicycle_model_acados_create_2_create_and_set_dimensions(Spa
         ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, i, "nsg", &nsg[i]);
         ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, i, "nbxe", &nbxe[i]);
     }
-    ocp_nlp_dims_set_cost(nlp_config, nlp_dims, 0, "ny", &ny[0]);
-    for (int i = 1; i < N; i++)
-        ocp_nlp_dims_set_cost(nlp_config, nlp_dims, i, "ny", &ny[i]);
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, 0, "nh", &nh[0]);
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, 0, "nsh", &nsh[0]);
 
@@ -294,7 +292,6 @@ ocp_nlp_dims* Spatialbicycle_model_acados_create_2_create_and_set_dimensions(Spa
     }
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, N, "nh", &nh[N]);
     ocp_nlp_dims_set_constraints(nlp_config, nlp_dims, N, "nsh", &nsh[N]);
-    ocp_nlp_dims_set_cost(nlp_config, nlp_dims, N, "ny", &ny[N]);
 
     free(intNp1mem);
 
@@ -348,6 +345,40 @@ void Spatialbicycle_model_acados_create_3_create_and_set_functions(Spatialbicycl
     }
 
 
+    // external cost
+    MAP_CASADI_FNC(ext_cost_0_fun, Spatialbicycle_model_cost_ext_cost_0_fun);
+
+    // external cost
+    MAP_CASADI_FNC(ext_cost_0_fun_jac, Spatialbicycle_model_cost_ext_cost_0_fun_jac);
+
+    // external cost
+    MAP_CASADI_FNC(ext_cost_0_fun_jac_hess, Spatialbicycle_model_cost_ext_cost_0_fun_jac_hess);
+    // external cost
+    capsule->ext_cost_fun = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*(N-1));
+    for (int i = 0; i < N-1; i++)
+    {
+        MAP_CASADI_FNC(ext_cost_fun[i], Spatialbicycle_model_cost_ext_cost_fun);
+    }
+
+    capsule->ext_cost_fun_jac = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*(N-1));
+    for (int i = 0; i < N-1; i++)
+    {
+        MAP_CASADI_FNC(ext_cost_fun_jac[i], Spatialbicycle_model_cost_ext_cost_fun_jac);
+    }
+
+    capsule->ext_cost_fun_jac_hess = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*(N-1));
+    for (int i = 0; i < N-1; i++)
+    {
+        MAP_CASADI_FNC(ext_cost_fun_jac_hess[i], Spatialbicycle_model_cost_ext_cost_fun_jac_hess);
+    }
+    // external cost - function
+    MAP_CASADI_FNC(ext_cost_e_fun, Spatialbicycle_model_cost_ext_cost_e_fun);
+
+    // external cost - jacobian
+    MAP_CASADI_FNC(ext_cost_e_fun_jac, Spatialbicycle_model_cost_ext_cost_e_fun_jac);
+
+    // external cost - hessian
+    MAP_CASADI_FNC(ext_cost_e_fun_jac_hess, Spatialbicycle_model_cost_ext_cost_e_fun_jac_hess);
 
 #undef MAP_CASADI_FNC
 }
@@ -402,117 +433,18 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
     }
 
     /**** Cost ****/
-    double* yref_0 = calloc(NY0, sizeof(double));
-    // change only the non-zero elements:
-    yref_0[0] = 1;
-    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "yref", yref_0);
-    free(yref_0);
-
-   double* W_0 = calloc(NY0*NY0, sizeof(double));
-    // change only the non-zero elements:
-    W_0[0+(NY0) * 0] = 5;
-    W_0[1+(NY0) * 1] = 0.0000005;
-    W_0[2+(NY0) * 2] = 0.0000005;
-    W_0[3+(NY0) * 3] = 0.0000005;
-    W_0[4+(NY0) * 4] = 0.05;
-    W_0[5+(NY0) * 5] = 0.25;
-    W_0[6+(NY0) * 6] = 0.05;
-    W_0[7+(NY0) * 7] = 0.25;
-    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "W", W_0);
-    free(W_0);
-    double* Vx_0 = calloc(NY0*NX, sizeof(double));
-    // change only the non-zero elements:
-    Vx_0[0+(NY0) * 0] = 1;
-    Vx_0[1+(NY0) * 1] = 1;
-    Vx_0[2+(NY0) * 2] = 1;
-    Vx_0[3+(NY0) * 3] = 1;
-    Vx_0[4+(NY0) * 4] = 1;
-    Vx_0[5+(NY0) * 5] = 1;
-    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "Vx", Vx_0);
-    free(Vx_0);
-    double* Vu_0 = calloc(NY0*NU, sizeof(double));
-    // change only the non-zero elements:
-    Vu_0[6+(NY0) * 0] = 1;
-    Vu_0[7+(NY0) * 1] = 1;
-    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "Vu", Vu_0);
-    free(Vu_0);
-    double* yref = calloc(NY, sizeof(double));
-    // change only the non-zero elements:
-    yref[0] = 1;
-
+    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "ext_cost_fun", &capsule->ext_cost_0_fun);
+    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "ext_cost_fun_jac", &capsule->ext_cost_0_fun_jac);
+    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "ext_cost_fun_jac_hess", &capsule->ext_cost_0_fun_jac_hess);
     for (int i = 1; i < N; i++)
     {
-        ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "yref", yref);
+        ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "ext_cost_fun", &capsule->ext_cost_fun[i-1]);
+        ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "ext_cost_fun_jac", &capsule->ext_cost_fun_jac[i-1]);
+        ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "ext_cost_fun_jac_hess", &capsule->ext_cost_fun_jac_hess[i-1]);
     }
-    free(yref);
-    double* W = calloc(NY*NY, sizeof(double));
-    // change only the non-zero elements:
-    W[0+(NY) * 0] = 5;
-    W[1+(NY) * 1] = 0.0000005;
-    W[2+(NY) * 2] = 0.0000005;
-    W[3+(NY) * 3] = 0.0000005;
-    W[4+(NY) * 4] = 0.05;
-    W[5+(NY) * 5] = 0.25;
-    W[6+(NY) * 6] = 0.05;
-    W[7+(NY) * 7] = 0.25;
-
-    for (int i = 1; i < N; i++)
-    {
-        ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "W", W);
-    }
-    free(W);
-    double* Vx = calloc(NY*NX, sizeof(double));
-    // change only the non-zero elements:
-    Vx[0+(NY) * 0] = 1;
-    Vx[1+(NY) * 1] = 1;
-    Vx[2+(NY) * 2] = 1;
-    Vx[3+(NY) * 3] = 1;
-    Vx[4+(NY) * 4] = 1;
-    Vx[5+(NY) * 5] = 1;
-    for (int i = 1; i < N; i++)
-    {
-        ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "Vx", Vx);
-    }
-    free(Vx);
-
-    
-    double* Vu = calloc(NY*NU, sizeof(double));
-    // change only the non-zero elements:
-    
-    Vu[6+(NY) * 0] = 1;
-    Vu[7+(NY) * 1] = 1;
-
-    for (int i = 1; i < N; i++)
-    {
-        ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "Vu", Vu);
-    }
-    free(Vu);
-    double* yref_e = calloc(NYN, sizeof(double));
-    // change only the non-zero elements:
-    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "yref", yref_e);
-    free(yref_e);
-
-    double* W_e = calloc(NYN*NYN, sizeof(double));
-    // change only the non-zero elements:
-    W_e[0+(NYN) * 0] = 0.1;
-    W_e[1+(NYN) * 1] = 0.2;
-    W_e[2+(NYN) * 2] = 0.0000000002;
-    W_e[3+(NYN) * 3] = 0.0000000002;
-    W_e[4+(NYN) * 4] = 0.0001;
-    W_e[5+(NYN) * 5] = 0.00004;
-    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "W", W_e);
-    free(W_e);
-    double* Vx_e = calloc(NYN*NX, sizeof(double));
-    // change only the non-zero elements:
-    
-    Vx_e[0+(NYN) * 0] = 1;
-    Vx_e[1+(NYN) * 1] = 1;
-    Vx_e[2+(NYN) * 2] = 1;
-    Vx_e[3+(NYN) * 3] = 1;
-    Vx_e[4+(NYN) * 4] = 1;
-    Vx_e[5+(NYN) * 5] = 1;
-    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "Vx", Vx_e);
-    free(Vx_e);
+    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "ext_cost_fun", &capsule->ext_cost_e_fun);
+    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "ext_cost_fun_jac", &capsule->ext_cost_e_fun_jac);
+    ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "ext_cost_fun_jac_hess", &capsule->ext_cost_e_fun_jac_hess);
 
 
 
@@ -525,28 +457,12 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
     // change only the non-zero elements:
     Zl[0] = 1;
     Zl[1] = 1;
-    Zl[2] = 1;
-    Zl[3] = 1;
-    Zl[4] = 1;
-    Zl[5] = 1;
     Zu[0] = 1;
     Zu[1] = 1;
-    Zu[2] = 1;
-    Zu[3] = 1;
-    Zu[4] = 1;
-    Zu[5] = 1;
     zl[0] = 100;
     zl[1] = 100;
-    zl[2] = 100;
-    zl[3] = 100;
-    zl[4] = 100;
-    zl[5] = 100;
     zu[0] = 100;
     zu[1] = 100;
-    zu[2] = 100;
-    zu[3] = 100;
-    zu[4] = 100;
-    zu[5] = 100;
 
     for (int i = 1; i < N; i++)
     {
@@ -570,6 +486,7 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
     idxbx0[3] = 3;
     idxbx0[4] = 4;
     idxbx0[5] = 5;
+    idxbx0[6] = 6;
 
     double* lubx0 = calloc(2*NBX0, sizeof(double));
     double* lbx0 = lubx0;
@@ -584,7 +501,7 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
     free(idxbx0);
     free(lubx0);
     // idxbxe_0
-    int* idxbxe_0 = malloc(6 * sizeof(int));
+    int* idxbxe_0 = malloc(7 * sizeof(int));
     
     idxbxe_0[0] = 0;
     idxbxe_0[1] = 1;
@@ -592,6 +509,7 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
     idxbxe_0[3] = 3;
     idxbxe_0[4] = 4;
     idxbxe_0[5] = 5;
+    idxbxe_0[6] = 6;
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "idxbxe", idxbxe_0);
     free(idxbxe_0);
 
@@ -603,32 +521,12 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
 
 
     /* constraints that are the same for initial and intermediate */
-
-    // ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "idxsbx", idxsbx);
-    // ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "lsbx", lsbx);
-    // ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "usbx", usbx);
-
-    // soft bounds on x
-    int* idxsbx = malloc(NSBX * sizeof(int));
-    idxsbx[0] = 0;
-
-    double* lusbx = calloc(2*NSBX, sizeof(double));
-    double* lsbx = lusbx;
-    double* usbx = lusbx + NSBX;
-
-    for (int i = 1; i < N; i++)
-    {
-        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i, "idxsbx", idxsbx);
-        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i, "lsbx", lsbx);
-        ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, i, "usbx", usbx);
-    }
-    free(idxsbx);
-    free(lusbx);
     // u
     int* idxbu = malloc(NBU * sizeof(int));
     
     idxbu[0] = 0;
     idxbu[1] = 1;
+    idxbu[2] = 2;
     double* lubu = calloc(2*NBU, sizeof(double));
     double* lbu = lubu;
     double* ubu = lubu + NBU;
@@ -637,6 +535,7 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
     ubu[0] = 10;
     lbu[1] = -2;
     ubu[1] = 2;
+    ubu[2] = 5;
 
     for (int i = 0; i < N; i++)
     {
@@ -654,10 +553,7 @@ void Spatialbicycle_model_acados_create_5_set_nlp_in(Spatialbicycle_model_solver
     int* idxsh = malloc(NSH * sizeof(int));
     
     idxsh[0] = 0;
-    idxsh[1] = 1;
-    idxsh[2] = 2;
-    idxsh[3] = 3;
-    idxsh[4] = 4;
+    idxsh[1] = 2;
     double* lush = calloc(2*NSH, sizeof(double));
     double* lsh = lush;
     double* ush = lush + NSH;
@@ -810,24 +706,14 @@ int fixed_hess = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_hpipm_mode", "BALANCE");
 
 
-    // set SQP specific options
-    double nlp_solver_tol_stat = 0.0001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_stat", &nlp_solver_tol_stat);
+    int as_rti_iter = 1;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "as_rti_iter", &as_rti_iter);
 
-    double nlp_solver_tol_eq = 0.0001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_eq", &nlp_solver_tol_eq);
+    int as_rti_level = 4;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "as_rti_level", &as_rti_level);
 
-    double nlp_solver_tol_ineq = 0.0001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_ineq", &nlp_solver_tol_ineq);
-
-    double nlp_solver_tol_comp = 0.0001;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_comp", &nlp_solver_tol_comp);
-
-    int nlp_solver_max_iter = 200;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "max_iter", &nlp_solver_max_iter);
-
-    int initialize_t_slacks = 0;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "initialize_t_slacks", &initialize_t_slacks);
+    int rti_log_residuals = 0;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_log_residuals", &rti_log_residuals);
 
     int qp_solver_iter_max = 50;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_iter_max", &qp_solver_iter_max);
@@ -844,6 +730,11 @@ int fixed_hess = 0;
 
 
     int ext_cost_num_hess = 0;
+    for (int i = 0; i < N; i++)
+    {
+        ocp_nlp_solver_opts_set_at_stage(nlp_config, nlp_opts, i, "cost_numerical_hessian", &ext_cost_num_hess);
+    }
+    ocp_nlp_solver_opts_set_at_stage(nlp_config, nlp_opts, N, "cost_numerical_hessian", &ext_cost_num_hess);
 }
 
 
@@ -1052,9 +943,15 @@ int Spatialbicycle_model_acados_update_params(Spatialbicycle_model_solver_capsul
         // cost
         if (stage == 0)
         {
+            capsule->ext_cost_0_fun.set_param(&capsule->ext_cost_0_fun, p);
+            capsule->ext_cost_0_fun_jac.set_param(&capsule->ext_cost_0_fun_jac, p);
+            capsule->ext_cost_0_fun_jac_hess.set_param(&capsule->ext_cost_0_fun_jac_hess, p);
         }
         else // 0 < stage < N
         {
+            capsule->ext_cost_fun[stage-1].set_param(capsule->ext_cost_fun+stage-1, p);
+            capsule->ext_cost_fun_jac[stage-1].set_param(capsule->ext_cost_fun_jac+stage-1, p);
+            capsule->ext_cost_fun_jac_hess[stage-1].set_param(capsule->ext_cost_fun_jac_hess+stage-1, p);
         }
     }
 
@@ -1062,6 +959,9 @@ int Spatialbicycle_model_acados_update_params(Spatialbicycle_model_solver_capsul
     {
         // terminal shooting node has no dynamics
         // cost
+        capsule->ext_cost_e_fun.set_param(&capsule->ext_cost_e_fun, p);
+        capsule->ext_cost_e_fun_jac.set_param(&capsule->ext_cost_e_fun_jac, p);
+        capsule->ext_cost_e_fun_jac_hess.set_param(&capsule->ext_cost_e_fun_jac_hess, p);
         // constraints
     }
 
@@ -1126,6 +1026,21 @@ int Spatialbicycle_model_acados_free(Spatialbicycle_model_solver_capsule* capsul
     free(capsule->expl_ode_fun);
 
     // cost
+    external_function_param_casadi_free(&capsule->ext_cost_0_fun);
+    external_function_param_casadi_free(&capsule->ext_cost_0_fun_jac);
+    external_function_param_casadi_free(&capsule->ext_cost_0_fun_jac_hess);
+    for (int i = 0; i < N - 1; i++)
+    {
+        external_function_param_casadi_free(&capsule->ext_cost_fun[i]);
+        external_function_param_casadi_free(&capsule->ext_cost_fun_jac[i]);
+        external_function_param_casadi_free(&capsule->ext_cost_fun_jac_hess[i]);
+    }
+    free(capsule->ext_cost_fun);
+    free(capsule->ext_cost_fun_jac);
+    free(capsule->ext_cost_fun_jac_hess);
+    external_function_param_casadi_free(&capsule->ext_cost_e_fun);
+    external_function_param_casadi_free(&capsule->ext_cost_e_fun_jac);
+    external_function_param_casadi_free(&capsule->ext_cost_e_fun_jac_hess);
 
     // constraints
     for (int i = 0; i < N-1; i++)
@@ -1148,7 +1063,7 @@ void Spatialbicycle_model_acados_print_stats(Spatialbicycle_model_solver_capsule
     ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "stat_m", &stat_m);
 
     
-    double stat[2400];
+    double stat[1200];
     ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "statistics", stat);
 
     int nrow = sqp_iter+1 < stat_m ? sqp_iter+1 : stat_m;
@@ -1157,24 +1072,16 @@ void Spatialbicycle_model_acados_print_stats(Spatialbicycle_model_solver_capsule
     if (stat_n > 8)
         printf("\t\tqp_res_stat\tqp_res_eq\tqp_res_ineq\tqp_res_comp");
     printf("\n");
-
+    printf("iter\tqp_stat\tqp_iter\n");
     for (int i = 0; i < nrow; i++)
     {
         for (int j = 0; j < stat_n + 1; j++)
         {
-            if (j == 0 || j == 5 || j == 6)
-            {
-                tmp_int = (int) stat[i + j * nrow];
-                printf("%d\t", tmp_int);
-            }
-            else
-            {
-                printf("%e\t", stat[i + j * nrow]);
-            }
+            tmp_int = (int) stat[i + j * nrow];
+            printf("%d\t", tmp_int);
         }
         printf("\n");
     }
-
 }
 
 int Spatialbicycle_model_acados_custom_update(Spatialbicycle_model_solver_capsule* capsule, double* data, int data_len)

@@ -43,7 +43,7 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
 
     nsbx = 0
     nh = constraint.expr.shape[0]
-    nsh = 3         # slacking only alat, along, n_max
+    nsh = 4         # slacking only alat, along, n_max, s_max
     # nsh = nh - 9 # # not slacking obstacle avoidance constraints
     # nsh = nh - 10 # # not slacking obstacle avoidance constraints & border
 
@@ -159,14 +159,14 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
         1e-3,
         1e-3,
         2e0, ##
-        # 1,
+        1e-1,
         # 1,
     ])
     slack_L2_cost = np.array([
         1e-3,
         1e-3,
         5e1, ##
-        # 1,
+        5e-1,
         # 1,
     ])
 
@@ -181,7 +181,7 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     ocp.constraints.ush = np.zeros(nsh)
     # ocp.constraints.idxsh = np.array(range(nsh)) # = [0,1,2]
     # ocp.constraints.idxsh = np.array([0,1,2,4,5]) # = [0,1,2]
-    ocp.constraints.idxsh = np.array([0,1,2]) # = [0,1,2]
+    ocp.constraints.idxsh = np.array([0,1,2,3]) # = [0,1,2]
 
     # set intial condition
     ocp.constraints.x0 = model.x0

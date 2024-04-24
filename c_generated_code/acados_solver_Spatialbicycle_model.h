@@ -36,16 +36,16 @@
 #include "acados_c/ocp_nlp_interface.h"
 #include "acados_c/external_function_interface.h"
 
-#define SPATIALBICYCLE_MODEL_NX     6
+#define SPATIALBICYCLE_MODEL_NX     7
 #define SPATIALBICYCLE_MODEL_NZ     0
-#define SPATIALBICYCLE_MODEL_NU     2
+#define SPATIALBICYCLE_MODEL_NU     3
 #define SPATIALBICYCLE_MODEL_NP     0
 #define SPATIALBICYCLE_MODEL_NBX    1
-#define SPATIALBICYCLE_MODEL_NBX0   6
-#define SPATIALBICYCLE_MODEL_NBU    2
-#define SPATIALBICYCLE_MODEL_NSBX   1
+#define SPATIALBICYCLE_MODEL_NBX0   7
+#define SPATIALBICYCLE_MODEL_NBU    3
+#define SPATIALBICYCLE_MODEL_NSBX   0
 #define SPATIALBICYCLE_MODEL_NSBU   0
-#define SPATIALBICYCLE_MODEL_NSH    5
+#define SPATIALBICYCLE_MODEL_NSH    2
 #define SPATIALBICYCLE_MODEL_NSH0   0
 #define SPATIALBICYCLE_MODEL_NSG    0
 #define SPATIALBICYCLE_MODEL_NSPHI  0
@@ -54,15 +54,15 @@
 #define SPATIALBICYCLE_MODEL_NSPHIN 0
 #define SPATIALBICYCLE_MODEL_NSPHI0 0
 #define SPATIALBICYCLE_MODEL_NSBXN  0
-#define SPATIALBICYCLE_MODEL_NS     6
+#define SPATIALBICYCLE_MODEL_NS     2
 #define SPATIALBICYCLE_MODEL_NS0    0
 #define SPATIALBICYCLE_MODEL_NSN    0
 #define SPATIALBICYCLE_MODEL_NG     0
 #define SPATIALBICYCLE_MODEL_NBXN   0
 #define SPATIALBICYCLE_MODEL_NGN    0
-#define SPATIALBICYCLE_MODEL_NY0    8
-#define SPATIALBICYCLE_MODEL_NY     8
-#define SPATIALBICYCLE_MODEL_NYN    6
+#define SPATIALBICYCLE_MODEL_NY0    0
+#define SPATIALBICYCLE_MODEL_NY     0
+#define SPATIALBICYCLE_MODEL_NYN    0
 #define SPATIALBICYCLE_MODEL_N      50
 #define SPATIALBICYCLE_MODEL_NH     5
 #define SPATIALBICYCLE_MODEL_NHN    0
@@ -104,10 +104,20 @@ typedef struct Spatialbicycle_model_solver_capsule
 
     // cost
 
+    external_function_param_casadi *ext_cost_fun;
+    external_function_param_casadi *ext_cost_fun_jac;
+    external_function_param_casadi *ext_cost_fun_jac_hess;
 
 
 
+    external_function_param_casadi ext_cost_0_fun;
+    external_function_param_casadi ext_cost_0_fun_jac;
+    external_function_param_casadi ext_cost_0_fun_jac_hess;
 
+
+    external_function_param_casadi ext_cost_e_fun;
+    external_function_param_casadi ext_cost_e_fun_jac;
+    external_function_param_casadi ext_cost_e_fun_jac_hess;
 
     // constraints
     external_function_param_casadi *nl_constr_h_fun_jac;
