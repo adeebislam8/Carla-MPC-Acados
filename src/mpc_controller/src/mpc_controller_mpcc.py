@@ -39,7 +39,7 @@ from carla_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus  # pyli
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import Pose, PoseStamped
 from std_msgs.msg import Float64
-from visualization_msgs.msg import Marker
+from visualization_msgs.msg import Marker, MarkerArray
 
 from global_planner.srv import Frenet2WorldService, World2FrenetService
 from global_planner.msg import FrenetPose, WorldPose
@@ -50,9 +50,11 @@ from scipy.interpolate import make_interp_spline
 class Obstacle:
     def __init__(self):
         self.id = -1 # actor id
-        self.vx = 0.0 # velocity in x direction
-        self.vy = 0.0 # velocity in y direction
-        self.vz = 0.0 # velocity in z direction
+        self.frenet_s = 0.0 # frenet s coordinate
+        self.frenet_d = 0.0
+        self.scale_x = 0.0 # bbox length in x direction
+        self.scale_y = 0.0 # bbox length in y direction
+        self.scale_z = 0.0 # bbox length in z direction
         self.ros_transform = None # transform of the obstacle in ROS coordinate
         self.carla_transform = None # transform of the obstacle in Carla world coordinate
         self.bbox = None # Bounding box w.r.t ego vehicle's local frame
@@ -81,7 +83,7 @@ class LocalPlannerMPC(CompatibleNode):
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
         self.Tf = 0.8
-        self.N = 26
+        self.N = 16
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
         # Log the matrices for verification
@@ -102,6 +104,9 @@ class LocalPlannerMPC(CompatibleNode):
         self._waypoints_queue = collections.deque(maxlen=20000)
         self._waypoint_buffer = collections.deque(maxlen=self._buffer_size)
         self._global_path_length = None
+        self._obstacles = []
+        self.s = 0
+        self.n = 0
 
         self.acados_solver = None
         self.path_initialized = False
@@ -125,6 +130,12 @@ class LocalPlannerMPC(CompatibleNode):
             self.path_cb,
             QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
         
+        self._obstacle_markers_subscriber = self.new_subscription(
+            MarkerArray,
+            "/carla/markers".format(role_name),
+            self.obstacle_markers_cb,
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
+
         self._world2frenet_service = self.new_client(
             World2FrenetService,
             '/world2frenet')
@@ -151,6 +162,11 @@ class LocalPlannerMPC(CompatibleNode):
 
 
         # publishers
+        self._selected_obstacle_publisher = self.new_publisher(
+            MarkerArray,
+            "/mpc_controller/{}/selected_obstacles".format(role_name),
+            qos_profile=10)
+        
         self._target_pose_publisher = self.new_publisher(
             Marker,
             "/mpc_controller/{}/next_target".format(role_name),
@@ -233,6 +249,46 @@ class LocalPlannerMPC(CompatibleNode):
     #     return carla_location.x >= min(vx) and carla_location.x <= max(vx) \
     #             and carla_location.y >= min(vy) and carla_location.y <= max(vy) \
     #             and carla_location.z >= min(vz) and carla_location.z <= max(vz) 
+
+    def obstacle_markers_cb(self, marker_array):
+        self._obstacles = []
+        # self._selected_obstacle_publisher.publish(self._selected_obstacles)
+        selected_obstacles = MarkerArray()
+
+        range = 150
+        for marker in marker_array.markers:
+            if marker.color.r == 255.0:
+
+                ob = Obstacle()
+                frenet_pose = self._get_frenet_pose(marker.pose)
+                distance = frenet_pose.s - self.s
+                print("Distance: ", distance)   
+                # distance = math.sqrt((self.s - frenet_pose.s) ** 2 + (self.n - frenet_pose.d) ** 2)  
+                if distance < range and distance > 0:
+                    
+                    # self.loginfo("Frenet pose in obstacle_markers_cb: {}".format(frenet_pose))
+                    ob.id = marker.id
+                    ob.frenet_s = frenet_pose.s
+                    ob.frenet_d = frenet_pose.d
+                    ob.ros_transform = marker.pose
+                    ob.scale_x = marker.scale.x
+                    ob.scale_y = marker.scale.y
+                    ob.scale_z = marker.scale.z
+                    self._obstacles.append(ob)
+                    obs_marker = marker
+                    obs_marker.color.r = 0.0
+                    obs_marker.color.g = 255.0
+                    obs_marker.color.b = 0.0
+                    obs_marker.color.a = 1.0
+                    obs_marker.scale.x = marker.scale.x 
+                    obs_marker.scale.y = marker.scale.y
+                    obs_marker.scale.z = marker.scale.z
+                    selected_obstacles.markers.append(obs_marker)
+        
+        print("No of Obstacles: ", len(self._obstacles))
+        print("No of Selected Obstacles: ", len(selected_obstacles.markers))
+        self._selected_obstacle_publisher.publish(selected_obstacles)
+        # self._selected_obstacles = []
 
     def odometry_cb(self, odometry_msg):
         # self.loginfo("Received odometry message")
@@ -385,10 +441,7 @@ class LocalPlannerMPC(CompatibleNode):
 
         """
         with self.data_lock:
-            time = rospy.get_time()
-            time_diff = time - self.time
-            self.time = time
-            self.loginfo("Time diff: {}".format(time_diff))
+
         # debug info
             while not self.path_initialized:
                 self.loginfo("Waiting for path to be initialized")
@@ -412,10 +465,7 @@ class LocalPlannerMPC(CompatibleNode):
                 self.constraint, self.model, self.acados_solver = acados_settings(self.Tf, self.N, self.spline_coeffs, self.spline_knots, self._path_msg, self.spline_degree)
                 self.loginfo("Initialized acados solver")
 
-            # print obstacle
-            # self.get_obstacles(self._current_pose.position, 10)
-            # print("Obstacles: ", self._obstacles)
-            # setup ocp
+   
             frenet_pose = self._get_frenet_pose(self._current_pose)
             # self.loginfo("Frenet pose in run step: {}".format(frenet_pose))
             if self._current_brake != 0:
@@ -424,12 +474,25 @@ class LocalPlannerMPC(CompatibleNode):
                 D = self._current_throttle
 
             s, n, alpha, v, D, delta = frenet_pose.s, frenet_pose.d, frenet_pose.yaw_s, self._current_speed, D, self._current_steering
-            print("s: ", s)
-            print("n: ", n) 
-            print("global_path_length: ", self._global_path_length)
+            self.s = s
+            self.n = n
+            # print("s: ", s)
+            # print("n: ", n) 
+            # print("global_path_length: ", self._global_path_length)
             theta = s                 # theta is the arc length progress along centerline
             # x = [s, n, alpha, v, D, delta]
             self.acados_solver.set(0, "x", np.array([s, n, alpha, v, D, delta, theta]))
+            
+            
+            self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
+            for i, object in enumerate(self._obstacles):
+                if i >= 6:
+                    break
+                frenet_points = [object.frenet_s, object.frenet_d]
+                # frenet_points.append([object.frenet_s, object.frenet_d])
+                self.objects_frenet_points[i] = np.array(frenet_points, dtype=np.float32)
+            # print("Objects frenet points: ", self.objects_frenet_points.flatten())
+
             distance2stop = 0.5 * v
             for i in range(1, self.N):
                 s_target = s + self._target_speed * (self.Tf / self.N) * (i+1)
@@ -456,7 +519,13 @@ class LocalPlannerMPC(CompatibleNode):
                     self.model.n_min,
                     self.model.v_min,
                     self.model.throttle_min,
-                    self.model.delta_min
+                    self.model.delta_min,
+                    self.constraint.dist_obs1_min,
+                    self.constraint.dist_obs2_min,
+                    self.constraint.dist_obs3_min,
+                    self.constraint.dist_obs4_min,
+                    self.constraint.dist_obs5_min,
+                    self.constraint.dist_obs6_min,
                 ]))
                 self.acados_solver.constraints_set(i, "uh", np.array([
                     self.constraint.along_max,
@@ -464,8 +533,15 @@ class LocalPlannerMPC(CompatibleNode):
                     self.model.n_max,
                     self.model.v_max,
                     self.model.throttle_max,
-                    self.model.delta_max
+                    self.model.delta_max,
+                    self.constraint.dist_obs1_max,
+                    self.constraint.dist_obs2_max,
+                    self.constraint.dist_obs3_max,
+                    self.constraint.dist_obs4_max,
+                    self.constraint.dist_obs5_max,
+                    self.constraint.dist_obs6_max,
                 ]))
+                self.acados_solver.set(i, "p", self.objects_frenet_points.flatten())
 
             s_target = s + self._target_speed * self.Tf
             if s_target > self._global_path_length:
@@ -538,28 +614,18 @@ class LocalPlannerMPC(CompatibleNode):
                 x = self.acados_solver.get(i, "x")
                 # print(f"x{i}: , {x[0]:8.4f}, {x[1]:8.4f}, {x[2]:8.4f}, {x[3]:8.4f}, {x[4]:8.4f}, {x[5]:8.4f}, {x[6]:8.4f}")
 
-            # self._predicted_path_publisher.publish(predicted_path)
 
             # draw computed trajectory
             if not isNaN:
-                # predicted_path_msg = Path()
-                # predicted_path_msg.poses = predicted_path
                 self._predicted_path_publisher.publish(predicted_path)
 
                 x0 = self.acados_solver.get(1, "x")
                 u0 = self.acados_solver.get(1, "x")
-                # self.accel = x0[6]
-                # print("self.accel: ", self.accel)
-
-                # self.derD = u0[0]
-                # self.derdelta = u0[1]
-                # self.jerk = u0[2]
-                # print("jerk: ", self.jerk)
 
                 self.target_D = x0[4]
                 self.target_delta = x0[5]
-                print("target_D: ", self.target_D)
-                print("target_delta: ", self.target_delta)
+                # print("target_D: ", self.target_D)
+                # print("target_delta: ", self.target_delta)
 
                 if self.target_D >= 0:
                     self.target_gas = self.target_D
@@ -579,58 +645,7 @@ class LocalPlannerMPC(CompatibleNode):
                 control_msg.manual_gear_shift = False
                 # print("Control message: ", control_msg)
                 self._control_cmd_publisher.publish(control_msg)
-                # control_msg = Control_Signal()
-                # control_msg.gas = self.target_gas
-                # control_msg.brake = self.target_brake
-                # control_msg.steerangle = self.target_steer
-                # self._vehicle_cmd_publisher.publish(control_msg)
-                # return
 
-            # 
-
-
-
-            
-            # if not self._waypoint_buffer and not self._waypoints_queue:
-            #     self.loginfo("Waiting for a route...")
-            #     self.emergency_stop()
-            #     return
-
-            # # when target speed is 0, brake.
-            # if self._target_speed == 0.0:
-            #     self.emergency_stop()
-            #     return
-
-            # #   Buffering the waypoints
-            # if not self._waypoint_buffer:
-            #     for i in range(self._buffer_size):
-            #         if self._waypoints_queue:
-            #             self._waypoint_buffer.append(self._waypoints_queue.popleft())
-            #         else:
-            #             break
-
-            # # target waypoint
-            # target_pose = self._waypoint_buffer[0]
-            # self._target_pose_publisher.publish(self.pose_to_marker_msg(target_pose))
-
-            # # move using PID controllers
-            # control_msg = self._vehicle_controller.run_step(
-            #     self._target_speed, self._current_speed, self._current_pose, target_pose)
-
-            # # purge the queue of obsolete waypoints
-            # max_index = -1
-
-            # sampling_radius = self._target_speed * 1 / 3.6  # search radius for next waypoints in seconds
-            # min_distance = sampling_radius * self.MIN_DISTANCE_PERCENTAGE
-
-            # for i, route_point in enumerate(self._waypoint_buffer):
-            #     if distance_vehicle(route_point, self._current_pose.position) < min_distance:
-            #         max_index = i
-            # if max_index >= 0:
-            #     for i in range(max_index + 1):
-            #         self._waypoint_buffer.popleft()
-
-            # self._control_cmd_publisher.publish(control_msg)
 
     def emergency_stop(self):
         control_msg = CarlaEgoVehicleControl()

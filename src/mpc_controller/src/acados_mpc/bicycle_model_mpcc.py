@@ -6,7 +6,7 @@ from casadi import *
 # from tracks.readDataFcn import getTrack
 from utils.convert_traj_track import parseReference, parseGlobal
 import math
-
+SAFETY_DISTANCE = 4
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 DIST2STOP = 15
@@ -168,7 +168,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     a_lat = C2 * v * v * delta + a_long * sin(C1 * delta)
 
     gamma = 0.7
-    SAFETY_DISTANCE = 5
+
 
     """ wrong """
     b1 = sqrt(((s - s_obs1)/1.0)**2 + ((n - n_obs1)/1.0)**2) 
@@ -276,23 +276,23 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     constraint.along_max = 10 # maximum longitudinal force [m/s^2]
 
     """ obstacle avoidance """
-    # constraint.dist_obs1_min = SAFETY_DISTANCE
-    # constraint.dist_obs1_max = 999999
+    constraint.dist_obs1_min = SAFETY_DISTANCE
+    constraint.dist_obs1_max = 999999
 
-    # constraint.dist_obs2_min = SAFETY_DISTANCE
-    # constraint.dist_obs2_max = 999999
+    constraint.dist_obs2_min = SAFETY_DISTANCE
+    constraint.dist_obs2_max = 999999
 
-    # constraint.dist_obs3_min = SAFETY_DISTANCE
-    # constraint.dist_obs3_max = 999999
+    constraint.dist_obs3_min = SAFETY_DISTANCE
+    constraint.dist_obs3_max = 999999
 
-    # constraint.dist_obs4_min = SAFETY_DISTANCE
-    # constraint.dist_obs4_max = 999999
+    constraint.dist_obs4_min = SAFETY_DISTANCE
+    constraint.dist_obs4_max = 999999
 
-    # constraint.dist_obs5_min = SAFETY_DISTANCE
-    # constraint.dist_obs5_max = 999999
+    constraint.dist_obs5_min = SAFETY_DISTANCE
+    constraint.dist_obs5_max = 999999
 
-    # constraint.dist_obs6_min = SAFETY_DISTANCE
-    # constraint.dist_obs6_max = 999999
+    constraint.dist_obs6_min = SAFETY_DISTANCE
+    constraint.dist_obs6_max = 999999
 
 
     """ ------------------ """
@@ -306,20 +306,21 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     #     )
     constraint.expr = vertcat(
         a_long, a_lat, n, s, D, delta, 
-        # dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6
+        dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6
         )
 
 
     # Define initial conditions
     model.x0 = np.array([0, 0, 0, 0, 0, 0, 0])
-    ql = 1e3     ## if this is low, the car starts to lag; theta is further than s
+    ql = 1e1     ## if this is low, the car starts to lag; theta is further than s
     qc = 5e-3
-    gamma = 3e-1  ## TODO: Need to check what is the max
+    gamma = 1e-1  ## TODO: Need to check what is the max
     r1 = 1e-2
     r2 = 5e-4
     r3 = 2e-4
-    q1 = 1e-3
-    q2 = 0
+    k1 = 1e0
+
+    closest_distance = fmin(dist_obs1, fmin(dist_obs2, fmin(dist_obs3, fmin(dist_obs4, fmin(dist_obs5, dist_obs6)))))
     model.cost_expr_ext_cost = (
         (ql * (s - theta) ** 2) * fmax(0, sign(path_length - s - DIST2STOP))
         + qc * n**2 * fmax(0, sign(path_length - s - DIST2STOP))
@@ -327,12 +328,26 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
         + r1 * derD**2 * fmax(0, sign(path_length - s - DIST2STOP))
         + r2 * derDelta**2 * fmax(0, sign(path_length - s - DIST2STOP))
         + r3 * derTheta**2 * fmax(0, sign(path_length - s - DIST2STOP))
+        # + k1 * fmax(0,(s_obs1 - s)) ** 2
+        # + k1 * fmax(0,(s_obs2 - s)) ** 2
+        # + k1 * fmax(0,(s_obs3 - s)) ** 2
+        # + k1 * fmax(0,(s_obs4 - s)) ** 2
+        # + k1 * fmax(0,(s_obs5 - s)) ** 2
+        # + k1 * fmax(0,(s_obs6 - s)) ** 2
+        + k1 * fmax(0,1/(closest_distance + 1e-9))
+        
         # + q1 * fmax(0,s + 50 - path_length) ** 2
         # + q1 * a_long**2
         # + q2 * a_lat**2
     )
-    model.cost_expr_ext_cost_e = 0
-    
+    model.cost_expr_ext_cost_e =    (     0
+        #  k1 * fmax(0,(s_obs1 - s)) ** 2
+        # + k1 * fmax(0,(s_obs2 - s)) ** 2
+        # + k1 * fmax(0,(s_obs3 - s)) ** 2
+        # + k1 * fmax(0,(s_obs4 - s)) ** 2
+        # + k1 * fmax(0,(s_obs5 - s)) ** 2
+        # + k1 * fmax(0,(s_obs6 - s)) ** 2
+    )
     # Define model struct
     params = types.SimpleNamespace()
     params.C1 = C1

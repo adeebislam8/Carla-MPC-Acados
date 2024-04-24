@@ -43,8 +43,8 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
 
     nsbx = 0
     nh = constraint.expr.shape[0]
-    nsh = 4         # slacking only alat, along, n_max, s_max
-    # nsh = nh - 9 # # not slacking obstacle avoidance constraints
+    # nsh = 4         # slacking only alat, along, n_max, s_max
+    nsh = 10     # slacking alat, along, n_max, s_max, obstacle avoidance constraints
     # nsh = nh - 10 # # not slacking obstacle avoidance constraints & border
 
     ns = nsh + nsbx
@@ -130,12 +130,12 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
             model.v_min,
             model.throttle_min,
             model.delta_min,
-            # constraint.dist_obs1_min,
-            # constraint.dist_obs2_min,
-            # constraint.dist_obs3_min,
-            # constraint.dist_obs4_min,
-            # constraint.dist_obs5_min,
-            # constraint.dist_obs6_min
+            constraint.dist_obs1_min,
+            constraint.dist_obs2_min,
+            constraint.dist_obs3_min,
+            constraint.dist_obs4_min,
+            constraint.dist_obs5_min,
+            constraint.dist_obs6_min
         ]
     )
     ocp.constraints.uh = np.array(
@@ -146,20 +146,26 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
             model.v_max,
             model.throttle_max,
             model.delta_max,
-            # constraint.dist_obs1_max,
-            # constraint.dist_obs2_max,
-            # constraint.dist_obs3_max,
-            # constraint.dist_obs4_max,
-            # constraint.dist_obs5_max,
-            # constraint.dist_obs6_max
+            constraint.dist_obs1_max,
+            constraint.dist_obs2_max,
+            constraint.dist_obs3_max,
+            constraint.dist_obs4_max,
+            constraint.dist_obs5_max,
+            constraint.dist_obs6_max
         ]
     )
 
     slack_L1_cost = np.array([
         1e-3,
         1e-3,
-        2e0, ##
+        1e0, ##
         1e-1,
+        1e2,
+        1e2,
+        1e2,
+        1e2,
+        1e2,
+        1e2,
         # 1,
     ])
     slack_L2_cost = np.array([
@@ -167,8 +173,13 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
         1e-3,
         5e1, ##
         5e-1,
-        # 1,
-    ])
+        1e2,
+        1e2,
+        1e2,
+        1e2,
+        1e2,
+        1e2,
+                ])
 
     ocp.cost.zl = slack_L1_cost
     ocp.cost.zu = slack_L1_cost
@@ -181,7 +192,7 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     ocp.constraints.ush = np.zeros(nsh)
     # ocp.constraints.idxsh = np.array(range(nsh)) # = [0,1,2]
     # ocp.constraints.idxsh = np.array([0,1,2,4,5]) # = [0,1,2]
-    ocp.constraints.idxsh = np.array([0,1,2,3]) # = [0,1,2]
+    ocp.constraints.idxsh = np.array([0,1,2,3,6,7,8,9,10,11]) # = [0,1,2]
 
     # set intial condition
     ocp.constraints.x0 = model.x0
