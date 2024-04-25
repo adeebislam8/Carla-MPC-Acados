@@ -6,10 +6,10 @@ from casadi import *
 # from tracks.readDataFcn import getTrack
 from utils.convert_traj_track import parseReference, parseGlobal
 import math
-SAFETY_DISTANCE = 4
+SAFETY_DISTANCE = 6
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
-DIST2STOP = 15
+DIST2STOP = 5
 def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # define structs
     constraint = types.SimpleNamespace()
@@ -239,8 +239,8 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # dist_obs6 = h6_dot + gamma * h6
 
     # Model bounds
-    model.n_min = -1.0  # width of the track [m]
-    model.n_max = 1.5  # width of the track [m]
+    model.n_min = -0.8  # width of the track [m]
+    model.n_max = 4.5  # width of the track [m]
     # model.n_min = -4.0  # width of the track [m]
     # model.n_max = 4.0  # width of the track [m]
 
@@ -261,12 +261,12 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     model.delta_max = 30 * DEG2RAD  # maximum steering angle [rad]
 
     # input bounds
-    model.ddelta_min = -10  # minimum change rate of stering angle [rad/s]
-    model.ddelta_max = 10  # maximum change rate of steering angle [rad/s]
-    model.dthrottle_min = -10  # -10.0  # minimum throttle change rate
-    model.dthrottle_max = 10 # 10.0  # maximum throttle change rate
+    model.ddelta_min = -5  # minimum change rate of stering angle [rad/s]
+    model.ddelta_max = 5  # maximum change rate of steering angle [rad/s]
+    model.dthrottle_min = -5  # -10.0  # minimum throttle change rate
+    model.dthrottle_max = 5 # 10.0  # maximum throttle change rate
     model.dtheta_min = 0
-    model.dtheta_max = 200
+    model.dtheta_max = 150
 
     # nonlinear constraint
     constraint.alat_min = -10  # minimum lateral force [m/s^2]
@@ -334,7 +334,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
         # + k1 * fmax(0,(s_obs4 - s)) ** 2
         # + k1 * fmax(0,(s_obs5 - s)) ** 2
         # + k1 * fmax(0,(s_obs6 - s)) ** 2
-        + k1 * fmax(0,1/(closest_distance + 1e-9))
+        # + k1 * fmax(0,1/(closest_distance + 1e-9))
         
         # + q1 * fmax(0,s + 50 - path_length) ** 2
         # + q1 * a_long**2

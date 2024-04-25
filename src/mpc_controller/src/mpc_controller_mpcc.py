@@ -84,7 +84,7 @@ class LocalPlannerMPC(CompatibleNode):
         # Fetch the Q and R matrices from parameters
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
-        self.Tf = 1.0
+        self.Tf = 0.8
         self.N = 15
         self.t_delay = 0.01
         self.obs_range = 100
@@ -234,20 +234,48 @@ class LocalPlannerMPC(CompatibleNode):
                         obs_marker.scale.z = marker.scale.z
                         obs_marker.lifetime = rospy.Duration(0.1)
                         # selected_obstacles.markers.append(obs_marker)
-                        selected_obstacles.append([obs_marker, frenet_pose.s])
+                        selected_obstacles.append([obs_marker, frenet_pose.s, frenet_pose.d])
 
+        # self._obstacles = sorted(self._obstacles, key=lambda x: x.frenet_s)
+        
         sorted_obstacles = MarkerArray()
         sorted_list = sorted(selected_obstacles, key=lambda x: x[1])
         for i, obs in enumerate(sorted_list):
             obs_marker = obs[0]
             obs_marker.id = i
             sorted_obstacles.markers.append(obs_marker)
+            # ob = Obstacle()
+            # ob.id = obs_marker.id
+            # ob.frenet_s = obs[1]
+            # ob.frenet_d = obs[2]
+            # ob.ros_transform = obs_marker.pose
+            # ob.scale_x = obs_marker.scale.x
+            # ob.scale_y = obs_marker.scale.y
+            # ob.scale_z = obs_marker.scale.z
+            # self._obstacles.append(ob)
+
+        # self._obstacles = self._obstacles[:6]
+        # print("self._obstacles: ", self._obstacles)
+
         # self.loginfo("No of Obstacles: {}".format(len(self._obstacles)))
+        # if self._obstacles:
+            # self.loginfo("Obstacles s: {}\n obs d: {}".format(self._obstacles[0].frenet_s, self._obstacles[0].frenet_d))
+        self.loginfo("cuurent s: {}\n current d: {}".format(self.s, self.n))
         # self.loginfo("No of Selected Obstacles: {}".format(len(selected_obstacles)))
         # self.loginfo("No of Sorted Obstacles: {}".format(len(sorted_obstacles.markers)))
         self._selected_obstacle_publisher.publish(sorted_obstacles.markers[:6])
-        # self._selected_obstacles = []
-
+        for i, obs in enumerate(sorted_obstacles.markers[:6]):
+            ob = Obstacle()
+            ob.id = obs.id
+            frenet_pose = self._get_frenet_pose(obs.pose)
+            ob.frenet_s = frenet_pose.s
+            ob.frenet_d = frenet_pose.d
+            ob.ros_transform = obs.pose
+            ob.scale_x = obs.scale.x
+            ob.scale_y = obs.scale.y
+            ob.scale_z = obs.scale.z
+            self._obstacles.append(ob)
+        self.loginfo("No of Obstacles: {}".format(len(self._obstacles)))
     def odometry_cb(self, odometry_msg):
         # self.loginfo("Received odometry message")
         with self.data_lock:
@@ -532,12 +560,13 @@ class LocalPlannerMPC(CompatibleNode):
             
             self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
             for i, object in enumerate(self._obstacles):
-                # if i >= 6:
-                #     break
+                if i >= 6:
+                    break
                 frenet_points = [object.frenet_s, object.frenet_d]
+                # print("frenet points: ", frenet_points)
                 # frenet_points.append([object.frenet_s, object.frenet_d])
                 self.objects_frenet_points[i] = np.array(frenet_points, dtype=np.float32)
-            # print("Objects frenet points: ", self.objects_frenet_points.flatten())
+            print("Objects frenet points: ", self.objects_frenet_points)
 
             distance2stop = 0.5 * v
             for i in range(1, self.N):
@@ -712,8 +741,8 @@ class LocalPlannerMPC(CompatibleNode):
                 current_time = rospy.get_time()
                 processing_time = max(current_time - self.time, 1e-9)  # Ensure processing time is never zero
                 frequency = 1.0 / processing_time
-                self.loginfo("Processing time: {:.9f} seconds".format(processing_time))
-                self.loginfo("Frequency: {:.2f} Hz".format(frequency))
+                # self.loginfo("Processing time: {:.9f} seconds".format(processing_time))
+                # self.loginfo("Frequency: {:.2f} Hz".format(frequency))
                 self.time = current_time
                 print(" ------------------------------------------------- ")
     def emergency_stop(self):
