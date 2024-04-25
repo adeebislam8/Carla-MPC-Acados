@@ -24,6 +24,8 @@ import carla_common.transforms as trans
 import collections
 import math
 import threading
+from casadi import *
+from scipy.integrate import solve_ivp
 
 import numpy as np
 import rospy
@@ -82,15 +84,21 @@ class LocalPlannerMPC(CompatibleNode):
         # Fetch the Q and R matrices from parameters
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
-        self.Tf = 0.8
-        self.N = 16
+        self.Tf = 1.0
+        self.N = 15
+        self.t_delay = 0.01
+        self.obs_range = 100
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
+        self.time = rospy.get_time()
         # Log the matrices for verification
         # self.loginfo("Q matrix: %s", str(self.Q_matrix))
         # self.loginfo("R matrix: %s", str(self.R_matrix))
         self.data_lock = threading.Lock()
-
+        self.initailize = False
+        self.derD = 0
+        self.derDelta = 0
+        self.derTheta = 0
         self._current_pose = None
         self._current_speed = None
         self._current_velocity = None
@@ -189,105 +197,55 @@ class LocalPlannerMPC(CompatibleNode):
         # self._vehicle_controller = VehicleMPCController(
         #     self)
 
-    # def get_obstacles(self, location, range):
-    #     """
-    #     Get a list of obstacles that are located within a certain distance from the location.
-        
-    #     :param      location: queried location
-    #     :param      range: search distance from the queried location
-    #     :type       location: geometry_msgs/Point
-    #     :type       range: float or double
-    #     :return:    None
-    #     :rtype:     None
-    #     """
-    #     self._obstacles = []
-    #     actor_list = self.world.get_actors()
-    #     for actor in actor_list:
-    #         if "role_name" in actor.attributes:
-    #             if actor.attributes["role_name"] == 'autopilot' or actor.attributes["role_name"] == "static":
-    #                 carla_transform = actor.get_transform()
-    #                 ros_transform = trans.carla_transform_to_ros_pose(carla_transform)
-    #                 x = ros_transform.position.x
-    #                 y = ros_transform.position.y
-    #                 z = ros_transform.position.z 
-    #                 distance = math.sqrt((x-location.x)**2 + (y-location.y)**2)
-    #                 if distance < range:
-    #                     # print("obs distance: {}").format(distance)
-    #                     ob = Obstacle()
-    #                     ob.id = actor.id
-    #                     ob.carla_transform = carla_transform
-    #                     ob.ros_transform = ros_transform
-    #                     ob.vx = actor.get_velocity().x
-    #                     ob.vy = actor.get_velocity().y
-    #                     ob.vz = actor.get_velocity().z
-    #                     ob.bbox = actor.bounding_box # in local frame
-    #                     # print("x: {}, y: {}, z:{}").format(x, y, z)
-    #                     # print("bbox x:{} y:{} z:{} ext: {} {} {}".format(ob.bbox.location.x, ob.bbox.location.y, ob.bbox.location.z, ob.bbox.extent.x, ob.bbox.extent.y, ob.bbox.extent.z))
-    #                     self._obstacles.append(ob)
 
-    # def check_obstacle(self, point, obstacle):
-    #     """
-    #     Check whether a point is inside the bounding box of the obstacle
-
-    #     :param      point: a location to check the collision (in ROS frame)
-    #     :param      obstacle: an obstacle for collision check
-    #     :type       point: geometry_msgs/Point
-    #     :type       obstacle: object Obstacle
-    #     :return:    true or false
-    #     :rtype:     boolean   
-    #     """
-    #     carla_location = carla.Location()
-    #     carla_location.x = point.x
-    #     carla_location.y = -point.y
-    #     carla_location.z = point.z
-        
-    #     vertices = obstacle.bbox.get_world_vertices(obstacle.carla_transform)
-        
-    #     vx = [v.x for v in vertices]
-    #     vy = [v.y for v in vertices]
-    #     vz = [v.z for v in vertices]
-    #     return carla_location.x >= min(vx) and carla_location.x <= max(vx) \
-    #             and carla_location.y >= min(vy) and carla_location.y <= max(vy) \
-    #             and carla_location.z >= min(vz) and carla_location.z <= max(vz) 
 
     def obstacle_markers_cb(self, marker_array):
         self._obstacles = []
         # self._selected_obstacle_publisher.publish(self._selected_obstacles)
-        selected_obstacles = MarkerArray()
+        # selected_obstacles = MarkerArray()
+        selected_obstacles = []
 
-        range = 150
         for marker in marker_array.markers:
             if marker.color.r == 255.0:
 
                 ob = Obstacle()
                 frenet_pose = self._get_frenet_pose(marker.pose)
                 distance = frenet_pose.s - self.s
-                print("Distance: ", distance)   
+                # print("Distance: ", distance)   
                 # distance = math.sqrt((self.s - frenet_pose.s) ** 2 + (self.n - frenet_pose.d) ** 2)  
-                if distance < range and distance > 0:
-                    
-                    # self.loginfo("Frenet pose in obstacle_markers_cb: {}".format(frenet_pose))
-                    ob.id = marker.id
-                    ob.frenet_s = frenet_pose.s
-                    ob.frenet_d = frenet_pose.d
-                    ob.ros_transform = marker.pose
-                    ob.scale_x = marker.scale.x
-                    ob.scale_y = marker.scale.y
-                    ob.scale_z = marker.scale.z
-                    self._obstacles.append(ob)
-                    obs_marker = marker
-                    obs_marker.color.r = 0.0
-                    obs_marker.color.g = 255.0
-                    obs_marker.color.b = 0.0
-                    obs_marker.color.a = 1.0
-                    obs_marker.scale.x = marker.scale.x 
-                    obs_marker.scale.y = marker.scale.y
-                    obs_marker.scale.z = marker.scale.z
-                    selected_obstacles.markers.append(obs_marker)
-        
-        print("No of Obstacles: ", len(self._obstacles))
-        print("No of Selected Obstacles: ", len(selected_obstacles.markers))
-        self._selected_obstacle_publisher.publish(selected_obstacles)
+                if distance < self.obs_range and distance > 0:
+                    if abs(frenet_pose.d) < 4.5:                    
+                        # self.loginfo("Frenet pose in obstacle_markers_cb: {}".format(frenet_pose))
+                        ob.id = marker.id
+                        ob.frenet_s = frenet_pose.s
+                        ob.frenet_d = frenet_pose.d
+                        ob.ros_transform = marker.pose
+                        ob.scale_x = marker.scale.x
+                        ob.scale_y = marker.scale.y
+                        ob.scale_z = marker.scale.z
+                        self._obstacles.append(ob)
+                        obs_marker = marker
+                        obs_marker.color.r = 0.0
+                        obs_marker.color.g = 255.0
+                        obs_marker.color.b = 0.0
+                        obs_marker.color.a = 1.0
+                        obs_marker.scale.x = marker.scale.x 
+                        obs_marker.scale.y = marker.scale.y
+                        obs_marker.scale.z = marker.scale.z
+                        obs_marker.lifetime = rospy.Duration(0.1)
+                        # selected_obstacles.markers.append(obs_marker)
+                        selected_obstacles.append([obs_marker, frenet_pose.s])
+
+        sorted_obstacles = MarkerArray()
+        sorted_list = sorted(selected_obstacles, key=lambda x: x[1])
+        for i, obs in enumerate(sorted_list):
+            obs_marker = obs[0]
+            obs_marker.id = i
+            sorted_obstacles.markers.append(obs_marker)
+        # self.loginfo("No of Obstacles: {}".format(len(self._obstacles)))
+        # self.loginfo("No of Selected Obstacles: {}".format(len(selected_obstacles)))
+        # self.loginfo("No of Sorted Obstacles: {}".format(len(sorted_obstacles.markers)))
+        self._selected_obstacle_publisher.publish(sorted_obstacles.markers[:6])
         # self._selected_obstacles = []
 
     def odometry_cb(self, odometry_msg):
@@ -430,6 +388,84 @@ class LocalPlannerMPC(CompatibleNode):
         marker_msg.color.a = 1.0
         return marker_msg
 
+    def _dynamics_of_car(self, t, x0) -> list:
+        """
+        Used for forward propagation. This function takes the dynamics from the acados model.
+        """
+        ## Race car parameters
+        m = 2065.03
+        # C1 =  -0.00021201
+        # C1 =  0.00021201
+        # C2 =  -0.17345602
+
+        lf = 1.169
+        lr = 1.801
+        C1 = lr / (lr + lf)
+        C2 = 1 / (lr + lf) * 0.5
+
+        Cm1 = 9.36424211e+03 
+        Cm2 = 4.08690122e+01  
+        Cr2 = 2.04799356e+00
+        Cr0 = 5.84856121e+02
+        Cr3 = 1.13995833e+01
+        # print("dyn x0: ", x0)
+        s, n, alpha, v, D, delta, theta, derD, derDelta, derTheta = x0
+        
+
+        kapparef_s = self.model.kapparef_s
+
+        Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * tanh(Cr3 * v)
+        # Fxd = (Cm1 - Cm2*v)*D - Cr2*v**2 - Cr0
+
+        a_long = Fxd / m
+        delta = -delta
+        sdot = (v * cos(alpha + C1 * delta)) / (1 - kapparef_s(s) * n)
+        ndot = v * sin(alpha + C1 * delta)
+        alphadot = v * C2 * delta - kapparef_s(s) * sdot                   # alphadot
+        # yaw_rate - kapparef_s(s) * sdot,                     # alphadot
+        vdot = a_long * cos(C1 * delta)                                  # vdot
+        # a_long * cos(C1 * delta) - vglobaldot_s(s) * sdot,
+        Ddot = derD
+        deltadot = derDelta
+        thetadot = derTheta
+
+        xdot = [float(sdot), ndot, float(alphadot), vdot, Ddot, deltadot, thetadot, Ddot, deltadot, thetadot]
+        # print("xdot: ", xdot)
+        return xdot
+    
+
+    def propagate_time_delay(self, states: np.array, inputs: np.array) -> np.array:
+
+        # Initial condition on the ODE
+        x0 = np.concatenate((states, inputs), axis=0)
+        # print("combined x0: ", x0)
+        solution = solve_ivp(
+            self._dynamics_of_car,
+            t_span=[0, self.t_delay],
+            y0=x0,
+            method="RK45",
+            atol=1e-8,
+            rtol=1e-8,
+        )
+        # print("solution: ", solution)
+        solution = [x[-1] for x in solution.y]
+
+        # Constraint on max. steering angle
+        s, n, alpha, v, D, delta, theta = solution[:7]
+        if abs(delta) > self.model.delta_max:
+            delta = (
+                np.sign(delta) * self.model.delta_max
+            )
+
+        # Constraint on max. thrust
+        if abs(D) > self.model.throttle_max:
+            D = (
+                np.sign(D) * self.model.throttle_max
+            )
+
+        # Only get the state as solution of where the car will be in t_delay seconds
+        return np.array(solution[:7])
+    
     def run_step(self):
         """
         Sets up the OCP problem in acados and solves it
@@ -440,6 +476,8 @@ class LocalPlannerMPC(CompatibleNode):
             - current vehicle actuators (throttle, brake, steering)
 
         """
+        # self.loginfo("Starting time: {}".format(rospy.get_time()))
+        # self.loginfo("self.time: {}".format(self.time))
         with self.data_lock:
 
         # debug info
@@ -474,6 +512,14 @@ class LocalPlannerMPC(CompatibleNode):
                 D = self._current_throttle
 
             s, n, alpha, v, D, delta = frenet_pose.s, frenet_pose.d, frenet_pose.yaw_s, self._current_speed, D, self._current_steering
+            x0p = np.array([s, n, alpha, v, D, delta, s])
+            u0p = np.array([self.derD, self.derDelta, self.derTheta])
+            # self.loginfo("Initial state: {}".format(x0p))
+            # propagated_x = self.propagate_time_delay(x0p, u0p)
+            # self.loginfo("Propagated state: {}".format(propagated_x))
+            # self.acados_solver.set(0, "lbx", propagated_x)
+            # self.acados_solver.set(0, "ubx", propagated_x)
+            
             self.s = s
             self.n = n
             # print("s: ", s)
@@ -486,8 +532,8 @@ class LocalPlannerMPC(CompatibleNode):
             
             self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
             for i, object in enumerate(self._obstacles):
-                if i >= 6:
-                    break
+                # if i >= 6:
+                #     break
                 frenet_points = [object.frenet_s, object.frenet_d]
                 # frenet_points.append([object.frenet_s, object.frenet_d])
                 self.objects_frenet_points[i] = np.array(frenet_points, dtype=np.float32)
@@ -496,23 +542,27 @@ class LocalPlannerMPC(CompatibleNode):
             distance2stop = 0.5 * v
             for i in range(1, self.N):
                 s_target = s + self._target_speed * (self.Tf / self.N) * (i+1)
-                if s_target > self._global_path_length:
-                    s_target = self._global_path_length - distance2stop
+                # if s_target > self._global_path_length:
+                #     s_target = self._global_path_length - distance2stop
+                #     lbx = np.array([s - 2])
+                #     ubx = np.array([s + 2])
+                    # self.acados_solver.set(i, "lbx", lbx)
+                    # self.acados_solver.set(i, "ubx", ubx)
+                    # self.loginfo("s_target: {}".format(s_target))
                 # print("s_target_{}: {}".format(i,s_target))
 
-                yref = np.array([
-                    s_target,     # s
-                    0,                                                       # n
-                    0,                                                       # alpha
-                    0,                                                       # v
-                    0,                                                       # D
-                    0,                                                       # delta
-                    # self.current_time + (self.Tf/self.N) * (i+1),                                # time
-                    0,                                                       # derD   
-                    0,                                                       # derdelta
-                ])
+                # yref = np.array([
+                #     s_target,     # s
+                #     0,                                                       # n
+                #     0,                                                       # alpha
+                #     0,                                                       # v
+                #     0,                                                       # D
+                #     0,                                                       # delta
+                #     # self.current_time + (self.Tf/self.N) * (i+1),                                # time
+                #     0,                                                       # derD   
+                #     0,                                                       # derdelta
+                # ])
                 # self.acados_solver.set(i, "yref", yref)
-
                 self.acados_solver.constraints_set(i, "lh", np.array([
                     self.constraint.along_min,
                     self.constraint.alat_min,
@@ -561,6 +611,10 @@ class LocalPlannerMPC(CompatibleNode):
             # self.acados_solver.set(self.N, "yref", yref_N)
             self.acados_solver.constraints_set(0, "lbx", np.array([s, n, alpha, v, D, delta, theta]))
             self.acados_solver.constraints_set(0, "ubx", np.array([s, n, alpha, v, D, delta, theta]))
+            # if not self.initailize:
+                # self.acados_solver.set(0, "lbx", np.array([s, n, alpha, v, D, delta, theta]))
+                # self.acados_solver.set(0, "ubx", np.array([s, n, alpha, v, D, delta, theta]))
+            #     self.initailize = True
             
             # solve ocp
             status = self.acados_solver.solve()
@@ -581,6 +635,10 @@ class LocalPlannerMPC(CompatibleNode):
                     self.loginfo("Emergency stop")
                     return
 
+            cost = self.acados_solver.get_cost()
+            # self.acados_solver.print_statistics()
+            # self.acados_solver.get_stats('residuals')
+            self.loginfo("Cost: {}".format(cost))
             # get solution
             for i in range(self.N + 1):
                 x = self.acados_solver.get(i, "x")
@@ -620,7 +678,12 @@ class LocalPlannerMPC(CompatibleNode):
                 self._predicted_path_publisher.publish(predicted_path)
 
                 x0 = self.acados_solver.get(1, "x")
-                u0 = self.acados_solver.get(1, "x")
+                u0 = self.acados_solver.get(1, "u")
+                # print("x0: ", x0)
+                # print("u0: ", u0)
+                self.derD = u0[0]
+                self.derDelta = u0[1]
+                self.derTheta = u0[2]
 
                 self.target_D = x0[4]
                 self.target_delta = x0[5]
@@ -645,8 +708,14 @@ class LocalPlannerMPC(CompatibleNode):
                 control_msg.manual_gear_shift = False
                 # print("Control message: ", control_msg)
                 self._control_cmd_publisher.publish(control_msg)
-
-
+                
+                current_time = rospy.get_time()
+                processing_time = max(current_time - self.time, 1e-9)  # Ensure processing time is never zero
+                frequency = 1.0 / processing_time
+                self.loginfo("Processing time: {:.9f} seconds".format(processing_time))
+                self.loginfo("Frequency: {:.2f} Hz".format(frequency))
+                self.time = current_time
+                print(" ------------------------------------------------- ")
     def emergency_stop(self):
         control_msg = CarlaEgoVehicleControl()
         control_msg.steer = 0.0
