@@ -85,9 +85,9 @@ class LocalPlannerMPC(CompatibleNode):
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
         self.Tf = 0.8
-        self.N = 15
+        self.N = 10
         self.t_delay = 0.05
-        self.obs_range = 100
+        self.obs_range = 200
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
         self.time = rospy.get_time()

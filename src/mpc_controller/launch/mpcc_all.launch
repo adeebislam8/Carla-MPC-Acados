@@ -17,8 +17,8 @@
   
    
   <arg name="role_name" default="ego_vehicle"/> <!-- role name of the ego vehicle (used for identification in many nodes) -->
-  <arg name='spawn_point' default='127.4,-195.4,2,0,0,180'/> 
-  <!-- <arg name='spawn_point' default=""/>  -->
+  <!-- <arg name='spawn_point' default='127.4,-195.4,2,0,0,180'/>  -->
+  <arg name='spawn_point' default=""/> 
   <!-- <arg name='spawn_point' default='71.1,-45.7,35.0,0.0,0.0,180.0'/> -->
   <!-- <arg name="goal_point" default="-64.6,24.4,0.59,0.0,0.0,180"/> goal point for the ego vehicle -->
 

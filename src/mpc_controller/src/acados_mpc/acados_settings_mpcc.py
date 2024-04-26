@@ -158,27 +158,27 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     slack_L1_cost = np.array([
         1e-3,
         1e-3,
-        2e0, ##
+        2e3, ##
         1e-1,
-        1e1,
-        1e1,
-        1e1,
-        1e1,
-        1e1,
-        1e1,
-        # 1,
+        1e3,
+        1e3,
+        1e3,
+        1e3,
+        1e3,
+        1e3,
+        # 4,
     ])
     slack_L2_cost = np.array([
         1e-3,
         1e-3,
-        5e1, ##
+        5e4, ##
         5e-1,
-        1e2,
-        1e2,
-        1e2,
-        1e2,
-        1e2,
-        1e2,
+        1e4,
+        1e4,
+        1e4,
+        1e4,
+        1e4,
+        1e4,
                 ])
 
     ocp.cost.zl = slack_L1_cost
@@ -209,7 +209,7 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     # ocp.solver_options.sim_method_num_stages = 4
     # ocp.solver_options.sim_method_num_steps = 4
     # ocp.solver_options.nlp_solver_step_length = 0.05
-    ocp.solver_options.nlp_solver_max_iter = 50
+    ocp.solver_options.nlp_solver_max_iter = 500
     # ocp.solver_options.tol = 1e-3
     # ocp.solver_options.nlp_solver_tol_comp = 1e-1
 

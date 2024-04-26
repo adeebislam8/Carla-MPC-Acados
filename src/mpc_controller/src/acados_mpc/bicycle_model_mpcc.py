@@ -6,7 +6,7 @@ from casadi import *
 # from tracks.readDataFcn import getTrack
 from utils.convert_traj_track import parseReference, parseGlobal
 import math
-SAFETY_DISTANCE = 5
+SAFETY_DISTANCE = 4
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 DIST2STOP = 5
@@ -239,7 +239,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # dist_obs6 = h6_dot + gamma * h6
 
     # Model bounds
-    model.n_min = -0.7  # width of the track [m]
+    model.n_min = -0.5  # width of the track [m]
     model.n_max = 4.0  # width of the track [m]
     # model.n_min = -4.0  # width of the track [m]
     # model.n_max = 4.0  # width of the track [m]
@@ -312,13 +312,13 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # Define initial conditions
     model.x0 = np.array([0, 0, 0, 0, 0, 0, 0])
-    ql = 1e3     ## if this is low, the car starts to lag; theta is further than s
-    qc = 5e-3
-    gamma = 3e-1  ## TODO: Need to check what is the max
-    r1 = 1e-2
-    r2 = 5e-4
-    r3 = 2e-4
-    k1 = 1e0
+    ql = 1e0     ## if this is low, the car starts to lag; theta is further than s
+    qc = 1e-2
+    gamma = 2e-1  ## TODO: Need to check what is the max
+    r1 = 1e-1
+    r2 = 5e-2
+    r3 = 1e-3
+    # k1 = 1e0
 
     closest_distance = fmin(dist_obs1, fmin(dist_obs2, fmin(dist_obs3, fmin(dist_obs4, fmin(dist_obs5, dist_obs6)))))
     model.cost_expr_ext_cost = (
@@ -334,7 +334,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
         # + k1 * fmax(0,(s_obs4 - s)) ** 2
         # + k1 * fmax(0,(s_obs5 - s)) ** 2
         # + k1 * fmax(0,(s_obs6 - s)) ** 2
-        # + k1 * fmax(0,1/(closest_distance + 1e-9))
+        # + k1 * fmax(0,1/(closest_distance + 1e-3))
         
         # + q1 * fmax(0,s + 50 - path_length) ** 2
         # + q1 * a_long**2
