@@ -1,0 +1,1 @@
+/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/mpcc_ros/share/mpcc_ros/cmake/mpcc_rosConfig.cmake

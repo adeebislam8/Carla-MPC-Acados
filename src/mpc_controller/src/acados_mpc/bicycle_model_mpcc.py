@@ -270,7 +270,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # nonlinear constraint
     constraint.alat_min = -10  # minimum lateral force [m/s^2]
-    constraint.alat_max =  10 # maximum lateral force [m/s^1]
+    constraint.alat_max =  3 # maximum lateral force [m/s^1]
 
     constraint.along_min = -10  # minimum longitudinal force [m/s^2]
     constraint.along_max = 10 # maximum longitudinal force [m/s^2]
@@ -365,5 +365,6 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     model.p = p
     model.name = model_name
     model.params = params
+    model.kapparef_s = kapparef_s
     
     return model, constraint

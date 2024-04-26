@@ -1,0 +1,3 @@
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/mpcc_ros/cmake/mpcc_rosConfig.cmake
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/mpcc_ros/cmake/mpcc_rosConfig-version.cmake
+Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/pkgconfig/mpcc_ros.pc

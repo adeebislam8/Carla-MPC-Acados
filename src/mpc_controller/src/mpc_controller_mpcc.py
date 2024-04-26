@@ -86,7 +86,7 @@ class LocalPlannerMPC(CompatibleNode):
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
         self.Tf = 0.8
         self.N = 15
-        self.t_delay = 0.01
+        self.t_delay = 0.02
         self.obs_range = 100
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
@@ -542,11 +542,11 @@ class LocalPlannerMPC(CompatibleNode):
             s, n, alpha, v, D, delta = frenet_pose.s, frenet_pose.d, frenet_pose.yaw_s, self._current_speed, D, self._current_steering
             x0p = np.array([s, n, alpha, v, D, delta, s])
             u0p = np.array([self.derD, self.derDelta, self.derTheta])
-            # self.loginfo("Initial state: {}".format(x0p))
-            # propagated_x = self.propagate_time_delay(x0p, u0p)
-            # self.loginfo("Propagated state: {}".format(propagated_x))
-            # self.acados_solver.set(0, "lbx", propagated_x)
-            # self.acados_solver.set(0, "ubx", propagated_x)
+            self.loginfo("Initial state: {}".format(x0p))
+            propagated_x = self.propagate_time_delay(x0p, u0p)
+            self.loginfo("Propagated state: {}".format(propagated_x))
+            self.acados_solver.set(0, "lbx", propagated_x)
+            self.acados_solver.set(0, "ubx", propagated_x)
             
             self.s = s
             self.n = n
@@ -555,7 +555,8 @@ class LocalPlannerMPC(CompatibleNode):
             # print("global_path_length: ", self._global_path_length)
             theta = s                 # theta is the arc length progress along centerline
             # x = [s, n, alpha, v, D, delta]
-            self.acados_solver.set(0, "x", np.array([s, n, alpha, v, D, delta, theta]))
+            # self.acados_solver.set(0, "x", np.array([s, n, alpha, v, D, delta, theta]))
+            self.acados_solver.set(0, "x", propagated_x)
             
             
             self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
@@ -638,8 +639,8 @@ class LocalPlannerMPC(CompatibleNode):
                 # 0,                                      # time
             ])
             # self.acados_solver.set(self.N, "yref", yref_N)
-            self.acados_solver.constraints_set(0, "lbx", np.array([s, n, alpha, v, D, delta, theta]))
-            self.acados_solver.constraints_set(0, "ubx", np.array([s, n, alpha, v, D, delta, theta]))
+            # self.acados_solver.constraints_set(0, "lbx", np.array([s, n, alpha, v, D, delta, theta]))
+            # self.acados_solver.constraints_set(0, "ubx", np.array([s, n, alpha, v, D, delta, theta]))
             # if not self.initailize:
                 # self.acados_solver.set(0, "lbx", np.array([s, n, alpha, v, D, delta, theta]))
                 # self.acados_solver.set(0, "ubx", np.array([s, n, alpha, v, D, delta, theta]))

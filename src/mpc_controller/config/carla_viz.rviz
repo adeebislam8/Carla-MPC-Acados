@@ -16,7 +16,7 @@ Panels:
         - /Camera1
         - /MarkerArray2
       Splitter Ratio: 0.5
-    Tree Height: 585
+    Tree Height: 303
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -274,7 +274,7 @@ Visualization Manager:
       Marker Topic: /mpc_controller/ego_vehicle/selected_obstacles
       Name: MarkerArray
       Namespaces:
-        "": true
+        {}
       Queue Size: 0
       Value: true
   Enabled: true
@@ -321,9 +321,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.24039733409881592
+      Pitch: 0.41039732098579407
       Target Frame: ego_vehicle
-      Yaw: 0.1359107792377472
+      Yaw: 5.1740946769714355
     Saved: ~
 Window Geometry:
   Camera:
@@ -343,5 +343,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1920
-  X: 5760
+  X: 7680
   Y: 0
