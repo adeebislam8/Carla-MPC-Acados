@@ -86,7 +86,7 @@ class LocalPlannerMPC(CompatibleNode):
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
         self.Tf = 0.8
         self.N = 15
-        self.t_delay = 0.02
+        self.t_delay = 0.05
         self.obs_range = 100
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
@@ -260,11 +260,11 @@ class LocalPlannerMPC(CompatibleNode):
         # self.loginfo("No of Obstacles: {}".format(len(self._obstacles)))
         # if self._obstacles:
             # self.loginfo("Obstacles s: {}\n obs d: {}".format(self._obstacles[0].frenet_s, self._obstacles[0].frenet_d))
-        self.loginfo("cuurent s: {}\n current d: {}".format(self.s, self.n))
+        # self.loginfo("cuurent s: {}\n current d: {}".format(self.s, self.n))
         # self.loginfo("No of Selected Obstacles: {}".format(len(selected_obstacles)))
         # self.loginfo("No of Sorted Obstacles: {}".format(len(sorted_obstacles.markers)))
-        self._selected_obstacle_publisher.publish(sorted_obstacles.markers[:6])
-        for i, obs in enumerate(sorted_obstacles.markers[:6]):
+        self._selected_obstacle_publisher.publish(sorted_obstacles.markers[:2])
+        for i, obs in enumerate(sorted_obstacles.markers[:2]):
             ob = Obstacle()
             ob.id = obs.id
             frenet_pose = self._get_frenet_pose(obs.pose)
@@ -275,7 +275,7 @@ class LocalPlannerMPC(CompatibleNode):
             ob.scale_y = obs.scale.y
             ob.scale_z = obs.scale.z
             self._obstacles.append(ob)
-        self.loginfo("No of Obstacles: {}".format(len(self._obstacles)))
+        # self.loginfo("No of Obstacles: {}".format(len(self._obstacles)))
     def odometry_cb(self, odometry_msg):
         # self.loginfo("Received odometry message")
         with self.data_lock:
@@ -542,11 +542,13 @@ class LocalPlannerMPC(CompatibleNode):
             s, n, alpha, v, D, delta = frenet_pose.s, frenet_pose.d, frenet_pose.yaw_s, self._current_speed, D, self._current_steering
             x0p = np.array([s, n, alpha, v, D, delta, s])
             u0p = np.array([self.derD, self.derDelta, self.derTheta])
-            self.loginfo("Initial state: {}".format(x0p))
             propagated_x = self.propagate_time_delay(x0p, u0p)
-            self.loginfo("Propagated state: {}".format(propagated_x))
             self.acados_solver.set(0, "lbx", propagated_x)
             self.acados_solver.set(0, "ubx", propagated_x)
+            # self.acados_solver.set(0, "x", propagated_x)
+
+            # self.loginfo("Initial state: {}".format(x0p))
+            # self.loginfo("Propagated state: {}".format(propagated_x))
             
             self.s = s
             self.n = n
@@ -555,10 +557,10 @@ class LocalPlannerMPC(CompatibleNode):
             # print("global_path_length: ", self._global_path_length)
             theta = s                 # theta is the arc length progress along centerline
             # x = [s, n, alpha, v, D, delta]
-            # self.acados_solver.set(0, "x", np.array([s, n, alpha, v, D, delta, theta]))
-            self.acados_solver.set(0, "x", propagated_x)
-            
-            
+            self.acados_solver.set(0, "x", np.array([s, n, alpha, v, D, delta, theta]))
+            # self.acados_solver.set(0, "lbx", np.array([s, n, alpha, v, D, delta, theta]))
+            # self.acados_solver.set(0, "ubx", np.array([s, n, alpha, v, D, delta, theta]))
+
             self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
             for i, object in enumerate(self._obstacles):
                 if i >= 6:
@@ -567,7 +569,7 @@ class LocalPlannerMPC(CompatibleNode):
                 # print("frenet points: ", frenet_points)
                 # frenet_points.append([object.frenet_s, object.frenet_d])
                 self.objects_frenet_points[i] = np.array(frenet_points, dtype=np.float32)
-            print("Objects frenet points: ", self.objects_frenet_points)
+            # print("Objects frenet points: ", self.objects_frenet_points)
 
             distance2stop = 0.5 * v
             for i in range(1, self.N):
@@ -743,7 +745,7 @@ class LocalPlannerMPC(CompatibleNode):
                 processing_time = max(current_time - self.time, 1e-9)  # Ensure processing time is never zero
                 frequency = 1.0 / processing_time
                 # self.loginfo("Processing time: {:.9f} seconds".format(processing_time))
-                # self.loginfo("Frequency: {:.2f} Hz".format(frequency))
+                self.loginfo("Frequency: {:.2f} Hz".format(frequency))
                 self.time = current_time
                 print(" ------------------------------------------------- ")
     def emergency_stop(self):
