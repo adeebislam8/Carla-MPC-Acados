@@ -266,7 +266,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # Model bounds
     model.n_min = -0.5  # width of the track [m]
-    model.n_max = 4.0  # width of the track [m]
+    model.n_max = 4.5  # width of the track [m]
     # model.n_min = -4.0  # width of the track [m]
     # model.n_max = 4.0  # width of the track [m]
 
@@ -295,10 +295,10 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     model.dtheta_max = 500
 
     # nonlinear constraint
-    constraint.alat_min = -50  # minimum lateral force [m/s^2]
-    constraint.alat_max =  50 # maximum lateral force [m/s^1]
+    constraint.alat_min = -5  # minimum lateral force [m/s^2]
+    constraint.alat_max =  5 # maximum lateral force [m/s^1]
 
-    constraint.along_min = -10  # minimum longitudinal force [m/s^2]
+    constraint.along_min = -8  # minimum longitudinal force [m/s^2]
     constraint.along_max = 5 # maximum longitudinal force [m/s^2]
 
     """ obstacle avoidance """
@@ -338,13 +338,13 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # Define initial conditions
     model.x0 = np.array([0, 0, 0, 0, 0, 0, 0])
-    ql = 1e-2     ## if this is low, the car starts to lag; theta is further than s
-    qc = 7e-2
-    gamma = 9e-1  ## TODO: Need to check what is the max
-    r1 = 2e-2
-    r2 = 6e-2
-    r3 = 1e-3
-    k1 = 5e-2
+    ql = 1e2     ## if this is low, the car starts to lag; theta is further than s
+    qc = 5e-3
+    gamma = 5e-1  ## TODO: Need to check what is the max
+    r1 = 5e-5
+    r2 = 5e-5
+    r3 = 1e-5
+    k1 = 5e-1
 
     # closest_distance = fmin(dist_obs1, fmin(dist_obs2, fmin(dist_obs3, fmin(dist_obs4, fmin(dist_obs5, dist_obs6)))))
     model.cost_expr_ext_cost = (
@@ -354,12 +354,12 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
         + r1 * derD**2 * fmax(0, sign(path_length - s - DIST2STOP))
         + r2 * derDelta**2 * fmax(0, sign(path_length - s - DIST2STOP))
         + r3 * derTheta**2 * fmax(0, sign(path_length - s - DIST2STOP))
-        + k1 * (1/fmax(1,(dist_obs1 - SAFETY_DISTANCE) + 1e-7))
-        + k1 * (1/fmax(1,(dist_obs2 - SAFETY_DISTANCE) + 1e-7))
-        + k1 * (1/fmax(1,(dist_obs3 - SAFETY_DISTANCE) + 1e-7))
-        + k1 * (1/fmax(1,(dist_obs4 - SAFETY_DISTANCE) + 1e-7))
-        + k1 * (1/fmax(1,(dist_obs5 - SAFETY_DISTANCE) + 1e-7))
-        + k1 * (1/fmax(1,(dist_obs6 - SAFETY_DISTANCE) + 1e-7))
+        + k1 * (1/fmax(1,(dist_obs1 - 2*SAFETY_DISTANCE) + 1e-7))
+        + k1 * (1/fmax(1,(dist_obs2 - 2*SAFETY_DISTANCE) + 1e-7))
+        # + k1 * (1/fmax(1,(dist_obs3 - SAFETY_DISTANCE) + 1e-7))
+        # + k1 * (1/fmax(1,(dist_obs4 - SAFETY_DISTANCE) + 1e-7))
+        # + k1 * (1/fmax(1,(dist_obs5 - SAFETY_DISTANCE) + 1e-7))
+        # + k1 * (1/fmax(1,(dist_obs6 - SAFETY_DISTANCE) + 1e-7))
 
         # + k1 * fmax(0,(s_obs1 - s)) ** 2
         # + k1 * fmax(0,(s_obs2 - s)) ** 2

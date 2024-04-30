@@ -84,10 +84,10 @@ class LocalPlannerMPC(CompatibleNode):
         # Fetch the Q and R matrices from parameters
         self.Q_matrix = self.get_param('~Q_matrix', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # Default Q matrix if not set
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
-        self.Tf = 0.8
+        self.Tf = 1.0
         self.N = 10
         self.t_delay = 0.05
-        self.obs_range = 200
+        self.obs_range = 300
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
         self.time = rospy.get_time()
@@ -217,7 +217,7 @@ class LocalPlannerMPC(CompatibleNode):
                 distance = frenet_pose.s - self.s
                 # print("Distance: ", distance)   
                 # distance = math.sqrt((self.s - frenet_pose.s) ** 2 + (self.n - frenet_pose.d) ** 2)  
-                if distance < self.obs_range and distance > 0:
+                if distance < self.obs_range and distance > -5:
                     if abs(frenet_pose.d) < 4.5:                    
                         # self.loginfo("Frenet pose in obstacle_markers_cb: {}".format(frenet_pose))
                         # ob.id = marker.id

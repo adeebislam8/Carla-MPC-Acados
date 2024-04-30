@@ -6,10 +6,22 @@ from casadi import *
 # from tracks.readDataFcn import getTrack
 from utils.convert_traj_track import parseReference, parseGlobal
 import math
-SAFETY_DISTANCE = 4.0
+SAFETY_DISTANCE = 2.5
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 DIST2STOP = 5
+
+
+def distance2obs_casadi(s, n, s_obs, n_obs):
+    # Define the condition for the large distance return
+    condition = s > (s_obs + 5)
+    # Use CasADi's if_else to handle conditional expressions
+    distance = if_else(condition, 
+                          999999,  # Large number instead of infinity
+                          sqrt((s - s_obs)**2 + (n - n_obs)**2))  # Calculate Euclidean distance
+    return distance
+
+
 def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # define structs
     constraint = types.SimpleNamespace()
@@ -28,7 +40,8 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     lf = 1.169
     lr = 1.801
     C1 = lr / (lr + lf)
-    C2 = 1 / (lr + lf) 
+    C2 = 1 / (lr + lf) * 0.5
+    # C2 = 1 / (lr + lf) 
 
     Cm1 = 9.36424211e+03 
     Cm2 = 4.08690122e+01  
@@ -40,11 +53,17 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # set up states & controls
     s = MX.sym("s")
     n = MX.sym("n")
+    n_diff = MX.sym("n_diff")
     alpha = MX.sym("alpha")
     v = MX.sym("v")
+    v_diff = MX.sym("v_diff")
     D = MX.sym("D")
     delta = MX.sym("delta")
     theta = MX.sym("theta")
+    dt_ = MX.sym("dt")
+    dt_ = dt
+    # yaw_rate = MX.sym("yaw_rate")
+    # x = vertcat(s, n, alpha, v, D, delta, time)
     x = vertcat(s, n, alpha, v, D, delta, theta)
 
     # controls
@@ -56,8 +75,10 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     # xdot
     sdot = MX.sym("sdot")
     ndot = MX.sym("ndot")
+    n_diffdot = MX.sym("n_diffdot")
     alphadot = MX.sym("alphadot")
     vdot = MX.sym("vdot")
+    v_diffdot = MX.sym("v_diffdot")
     Ddot = MX.sym("Ddot")
     deltadot = MX.sym("deltadot")
     thetadot = MX.sym("thetador")
@@ -65,6 +86,9 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # algebraic variables
     z = vertcat([])
+
+    # parameters
+    # p = vertcat([])
 
     """ obstacle avoidance """
     # parameters
@@ -97,9 +121,6 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     """---------------------"""
 
-    # dynamics
-    # Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 # for mpcc
-    # Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * tanh(5 * v)
     Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * tanh(Cr3 * v)
     # Fxd = (Cm1 - Cm2*v)*D - Cr2*v**2 - Cr0
 
@@ -111,6 +132,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
         sdot,                                                      # sdot
         ndot,                               # ndot
         v * C2 * delta - kapparef_s(s) * sdot,                   # alphadot
+        # yaw_rate - kapparef_s(s) * sdot,                     # alphadot
         a_long * cos(C1 * delta),                                  # vdot
         derD,
         derDelta,
@@ -129,95 +151,66 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     b4 = sqrt(((s - s_obs4)/1.0)**2 + ((n - n_obs4)/1.0)**2) 
     b5 = sqrt(((s - s_obs5)/1.0)**2 + ((n - n_obs5)/1.0)**2) 
     b6 = sqrt(((s - s_obs6)/1.0)**2 + ((n - n_obs6)/1.0)**2) 
-    s_next = s + sdot * dt
-    n_next = n + ndot * dt
-    b1_next = sqrt(((s_next - s_obs1)/1.0)**2 + ((n_next - n_obs1)/1.0)**2) 
-    b2_next = sqrt(((s_next - s_obs2)/1.0)**2 + ((n_next - n_obs2)/1.0)**2) 
-    b3_next = sqrt(((s_next - s_obs3)/1.0)**2 + ((n_next - n_obs3)/1.0)**2) 
-    b4_next = sqrt(((s_next - s_obs4)/1.0)**2 + ((n_next - n_obs4)/1.0)**2) 
-    b5_next = sqrt(((s_next - s_obs5)/1.0)**2 + ((n_next - n_obs5)/1.0)**2) 
-    b6_next = sqrt(((s_next - s_obs6)/1.0)**2 + ((n_next - n_obs6)/1.0)**2) 
+    b1 = distance2obs_casadi(s, n, s_obs1, n_obs1)
+    b2 = distance2obs_casadi(s, n, s_obs2, n_obs2)
+    b3 = distance2obs_casadi(s, n, s_obs3, n_obs3)
+    b4 = distance2obs_casadi(s, n, s_obs4, n_obs4)
+    b5 = distance2obs_casadi(s, n, s_obs5, n_obs5)
+    b6 = distance2obs_casadi(s, n, s_obs6, n_obs6)
+    #all_dist = Function('all_dist', [s, n, s_obs1, n_obs1, s_obs2, n_obs2, s_obs3, n_obs3, s_obs4, n_obs4, s_obs5, n_obs5, s_obs6, n_obs6], [b1, b2, b3, b4, b5, b6])
+    s_next = s + sdot * dt_
+    n_next = n + ndot * dt_
 
-    # dist_obs1 = b1_next - b1 + gamma * b1
-    # dist_obs2 = b2_next - b2 + gamma * b2
-    # dist_obs3 = b3_next - b3 + gamma * b3
-    # dist_obs4 = b4_next - b4 + gamma * b4
-    # dist_obs5 = b5_next - b5 + gamma * b5
-    # dist_obs6 = b6_next - b6 + gamma * b6
+    b1_next = distance2obs_casadi(s_next, n_next, s_obs1, n_obs1)
+    b2_next = distance2obs_casadi(s_next, n_next, s_obs2, n_obs2)
+    b3_next = distance2obs_casadi(s_next, n_next, s_obs3, n_obs3)
+    b4_next = distance2obs_casadi(s_next, n_next, s_obs4, n_obs4)
+    b5_next = distance2obs_casadi(s_next, n_next, s_obs5, n_obs5)
+    b6_next = distance2obs_casadi(s_next, n_next, s_obs6, n_obs6)
+    print("s_next_type: ", type(s_next))
+    print("n_next_type: ", type(n_next))
+    #all_dist_next = Function('all_dist_next', [s_next, n_next, s_obs1, n_obs1, s_obs2, n_obs2, s_obs3, n_obs3, s_obs4, n_obs4, s_obs5, n_obs5, s_obs6, n_obs6], [b1_next, b2_next, b3_next, b4_next, b5_next, b6_next])
+
+
+    dist_obs1 = b1_next - b1 + gamma * b1
+    dist_obs2 = b2_next - b2 + gamma * b2
+    dist_obs3 = b3_next - b3 + gamma * b3
+    dist_obs4 = b4_next - b4 + gamma * b4
+    dist_obs5 = b5_next - b5 + gamma * b5
+    dist_obs6 = b6_next - b6 + gamma * b6
     """ wrong """
 
-    dist_obs1 = sqrt((s - s_obs1)*(s - s_obs1) + (n - n_obs1)*(n - n_obs1))
-    dist_obs2 = sqrt((s - s_obs2)*(s - s_obs2) + (n - n_obs2)*(n - n_obs2))
-    dist_obs3 = sqrt((s - s_obs3)*(s - s_obs3) + (n - n_obs3)*(n - n_obs3))
-    dist_obs4 = sqrt((s - s_obs4)*(s - s_obs4) + (n - n_obs4)*(n - n_obs4))
-    dist_obs5 = sqrt((s - s_obs5)*(s - s_obs5) + (n - n_obs5)*(n - n_obs5))
-    dist_obs6 = sqrt((s - s_obs6)*(s - s_obs6) + (n - n_obs6)*(n - n_obs6))
-
-    # # dist_obs1 = sqrt((s - s_obs1)*(s - s_obs1) + (n - n_obs1)*(n - n_obs1)*0.5) - SAFETY_DISTANCE 
-    # # dist_obs2 = sqrt((s - s_obs2)*(s - s_obs2) + (n - n_obs2)*(n - n_obs2)*0.5) - SAFETY_DISTANCE
-    # # dist_obs3 = sqrt((s - s_obs3)*(s - s_obs3) + (n - n_obs3)*(n - n_obs3)*0.5) - SAFETY_DISTANCE
-    # # dist_obs4 = sqrt((s - s_obs4)*(s - s_obs4) + (n - n_obs4)*(n - n_obs4)*0.5) - SAFETY_DISTANCE
-    # # dist_obs5 = sqrt((s - s_obs5)*(s - s_obs5) + (n - n_obs5)*(n - n_obs5)*0.5) - SAFETY_DISTANCE
-    # # dist_obs6 = sqrt((s - s_obs6)*(s - s_obs6) + (n - n_obs6)*(n - n_obs6)*0.5) - SAFETY_DISTANCE
-
-    # h1_dot = ((s - s_obs1)*0.25*sdot + (n - n_obs1)*ndot)/dist_obs1
-    # h2_dot = ((s - s_obs2)*0.25*sdot + (n - n_obs2)*ndot)/dist_obs2
-    # h3_dot = ((s - s_obs3)*0.25*sdot + (n - n_obs3)*ndot)/dist_obs3
-    # h4_dot = ((s - s_obs4)*0.25*sdot + (n - n_obs4)*ndot)/dist_obs4
-    # h5_dot = ((s - s_obs5)*0.25*sdot + (n - n_obs5)*ndot)/dist_obs5
-    # h6_dot = ((s - s_obs6)*0.25*sdot + (n - n_obs6)*ndot)/dist_obs6
-
-
-
-    # # h1 = sqrt(dist_obs1**2 - SAFETY_DISTANCE**2)    
-    # # h2 = sqrt(dist_obs2**2 - SAFETY_DISTANCE**2)    
-    # # h3 = sqrt(dist_obs3**2 - SAFETY_DISTANCE**2)    
-    # # h4 = sqrt(dist_obs4**2 - SAFETY_DISTANCE**2)    
-    # # h5 = sqrt(dist_obs5**2 - SAFETY_DISTANCE**2)    
-    # # h6 = sqrt(dist_obs6**2 - SAFETY_DISTANCE**2)
-    # h1 = dist_obs1 - SAFETY_DISTANCE    
-    # h2 = dist_obs2 - SAFETY_DISTANCE    
-    # h3 = dist_obs3 - SAFETY_DISTANCE    
-    # h4 = dist_obs4 - SAFETY_DISTANCE    
-    # h5 = dist_obs5 - SAFETY_DISTANCE    
-    # h6 = dist_obs6 - SAFETY_DISTANCE
-
-
-    # dist_obs1 = h1_dot + gamma * h1
-    # dist_obs2 = h2_dot + gamma * h2
-    # dist_obs3 = h3_dot + gamma * h3
-    # dist_obs4 = h4_dot + gamma * h4
-    # dist_obs5 = h5_dot + gamma * h5
-    # dist_obs6 = h6_dot + gamma * h6
 
     # Model bounds
     model.n_min = -0.5  # width of the track [m]
-    model.n_max = 4.0  # width of the track [m]
+    model.n_max = 4.5  # width of the track [m]
+
 
     model.v_min = 0  # width of the track [m]
-    model.v_max = path_length  # width of the track [m]
-    # model.v_max = 200  # width of the track [m]
+    #model.v_max = path_length  # width of the track [m]
+    model.v_max = 120  # width of the track [m]
 
     model.throttle_min = -1.0
     model.throttle_max = 1.0
 
-    model.delta_min = -40 * DEG2RAD  # minimum steering angle [rad]
-    model.delta_max = 40 * DEG2RAD  # maximum steering angle [rad]
+ 
+    model.delta_min = -30 * DEG2RAD  # minimum steering angle [rad]
+    model.delta_max = 30 * DEG2RAD  # maximum steering angle [rad]
 
     # input bounds
-    model.ddelta_min = -100  # minimum change rate of stering angle [rad/s]
-    model.ddelta_max = 100  # maximum change rate of steering angle [rad/s]
+    model.ddelta_min = -10  # minimum change rate of stering angle [rad/s]
+    model.ddelta_max = 10  # maximum change rate of steering angle [rad/s]
     model.dthrottle_min = -50  # -10.0  # minimum throttle change rate
     model.dthrottle_max = 50 # 10.0  # maximum throttle change rate
     model.dtheta_min = 0
-    model.dtheta_max = 500
+    model.dtheta_max = 200
 
     # nonlinear constraint
-    constraint.alat_min = -50  # minimum lateral force [m/s^2]
-    constraint.alat_max =  50 # maximum lateral force [m/s^1]
+    constraint.alat_min = -5  # minimum lateral force [m/s^2]
+    constraint.alat_max =  5 # maximum lateral force [m/s^1]
 
-    constraint.along_min = -50  # minimum longitudinal force [m/s^2]
-    constraint.along_max = 30 # maximum longitudinal force [m/s^2]
+    constraint.along_min = -5  # minimum longitudinal force [m/s^2]
+    constraint.along_max = 3 # maximum longitudinal force [m/s^2]
 
     """ obstacle avoidance """
     constraint.dist_obs1_min = SAFETY_DISTANCE
@@ -241,22 +234,20 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     """ ------------------ """
 
-    constraint.expr = vertcat(
-        a_long, a_lat, n, s, D, delta, 
-        dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6
-        )
 
+    constraint.expr = vertcat(a_long, a_lat, n, sdot, D, delta, dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6)   
 
     # Define initial conditions
     model.x0 = np.array([0, 0, 0, 0, 0, 0, 0])
     ql = 1e-2     ## if this is low, the car starts to lag; theta is further than s
-    qc = 1e-2
-    gamma = 3e-1  ## TODO: Need to check what is the max
-    r1 = 1e-2
-    r2 = 1e-2
+    qc = 1e-3
+    gamma = 2e-1  ## TODO: Need to check what is the max
+    r1 = 5e-4
+    r2 = 5e-4
     r3 = 1e-3
-    # k1 = 1e0
+    k1 = 5e-1
 
+    # closest_distance = fmin(dist_obs1, fmin(dist_obs2, fmin(dist_obs3, fmin(dist_obs4, fmin(dist_obs5, dist_obs6)))))
     model.cost_expr_ext_cost = (
         (ql * (s - theta) ** 2) * fmax(0, sign(path_length - s - DIST2STOP))
         + qc * n**2 * fmax(0, sign(path_length - s - DIST2STOP))
@@ -264,11 +255,14 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
         + r1 * derD**2 * fmax(0, sign(path_length - s - DIST2STOP))
         + r2 * derDelta**2 * fmax(0, sign(path_length - s - DIST2STOP))
         + r3 * derTheta**2 * fmax(0, sign(path_length - s - DIST2STOP))
+        + k1 * (1/fmax(1,(dist_obs1 - 2*SAFETY_DISTANCE) + 1e-7))
+        + k1 * (1/fmax(1,(dist_obs2 - 2*SAFETY_DISTANCE) + 1e-7))
+        + k1 * (1/fmax(1,(dist_obs3 - 2*SAFETY_DISTANCE) + 1e-7))
+
     )
     model.cost_expr_ext_cost_e =    (     0
+
     )
-
-
     # Define model struct
     params = types.SimpleNamespace()
     params.C1 = C1

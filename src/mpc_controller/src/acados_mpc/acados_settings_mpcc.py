@@ -3,7 +3,9 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from bicycle_model_mpcc import bicycle_model
+# from bicycle_model_mpcc import bicycle_model
+from bicycle_model_mpcc_cbf import bicycle_model
+
 import scipy.linalg
 import numpy as np
 import math
@@ -158,27 +160,27 @@ def acados_settings(Tf, N, coeffs, knots, path_msg, degree=3):
     slack_L1_cost = np.array([
         1e-3,
         1e-3,
-        2e3, ##
-        1e-1,
-        1e2,
-        1e2,
-        1e2,
-        1e2,
-        1e2,
-        1e2,
+        2e0, ##
+        1e-3,
+        2e0,
+        2e0,
+        2e0,
+        2e0,
+        2e0,
+        2e0,
         # 4,
     ])
     slack_L2_cost = np.array([
         1e-3,
         1e-3,
-        5e3, ##
+        5e2, ##
         5e-1,
-        1e3,
-        1e3,
-        1e3,
-        1e3,
-        1e3,
-        1e3,
+        5e0,
+        5e0,
+        5e0,
+        5e0,
+        5e0,
+        5e0,
                 ])
 
     ocp.cost.zl = slack_L1_cost
