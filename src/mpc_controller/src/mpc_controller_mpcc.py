@@ -112,7 +112,7 @@ class LocalPlannerMPC(CompatibleNode):
         self._waypoints_queue = collections.deque(maxlen=20000)
         self._waypoint_buffer = collections.deque(maxlen=self._buffer_size)
         self._global_path_length = None
-        self._obstacles = []
+        self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
         self.s = 0
         self.n = 0
 
@@ -200,7 +200,11 @@ class LocalPlannerMPC(CompatibleNode):
 
 
     def obstacle_markers_cb(self, marker_array):
-        self._obstacles = []
+        # with self.data_lock:
+        # self._obstacles = []
+        # print("obstacles reset")
+        # self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
+
         # self._selected_obstacle_publisher.publish(self._selected_obstacles)
         # selected_obstacles = MarkerArray()
         selected_obstacles = []
@@ -208,7 +212,7 @@ class LocalPlannerMPC(CompatibleNode):
         for marker in marker_array.markers:
             if marker.color.r == 255.0:
 
-                ob = Obstacle()
+                # ob = Obstacle()
                 frenet_pose = self._get_frenet_pose(marker.pose)
                 distance = frenet_pose.s - self.s
                 # print("Distance: ", distance)   
@@ -216,14 +220,14 @@ class LocalPlannerMPC(CompatibleNode):
                 if distance < self.obs_range and distance > 0:
                     if abs(frenet_pose.d) < 4.5:                    
                         # self.loginfo("Frenet pose in obstacle_markers_cb: {}".format(frenet_pose))
-                        ob.id = marker.id
-                        ob.frenet_s = frenet_pose.s
-                        ob.frenet_d = frenet_pose.d
-                        ob.ros_transform = marker.pose
-                        ob.scale_x = marker.scale.x
-                        ob.scale_y = marker.scale.y
-                        ob.scale_z = marker.scale.z
-                        self._obstacles.append(ob)
+                        # ob.id = marker.id
+                        # ob.frenet_s = frenet_pose.s
+                        # ob.frenet_d = frenet_pose.d
+                        # ob.ros_transform = marker.pose
+                        # ob.scale_x = marker.scale.x
+                        # ob.scale_y = marker.scale.y
+                        # ob.scale_z = marker.scale.z
+                        # self._obstacles.append(ob)
                         obs_marker = marker
                         obs_marker.color.r = 0.0
                         obs_marker.color.g = 255.0
@@ -263,19 +267,21 @@ class LocalPlannerMPC(CompatibleNode):
         # self.loginfo("cuurent s: {}\n current d: {}".format(self.s, self.n))
         # self.loginfo("No of Selected Obstacles: {}".format(len(selected_obstacles)))
         # self.loginfo("No of Sorted Obstacles: {}".format(len(sorted_obstacles.markers)))
-        self._selected_obstacle_publisher.publish(sorted_obstacles.markers[:2])
-        for i, obs in enumerate(sorted_obstacles.markers[:2]):
-            ob = Obstacle()
-            ob.id = obs.id
+        self._selected_obstacle_publisher.publish(sorted_obstacles.markers[:3])
+        for i, obs in enumerate(sorted_obstacles.markers[:3]):
+            # ob = Obstacle()
+            # ob.id = obs.id
             frenet_pose = self._get_frenet_pose(obs.pose)
-            ob.frenet_s = frenet_pose.s
-            ob.frenet_d = frenet_pose.d
-            ob.ros_transform = obs.pose
-            ob.scale_x = obs.scale.x
-            ob.scale_y = obs.scale.y
-            ob.scale_z = obs.scale.z
-            self._obstacles.append(ob)
+            self.objects_frenet_points[i] = np.array([frenet_pose.s, frenet_pose.d], dtype=np.float32)
+            # ob.frenet_s = frenet_pose.s
+            # ob.frenet_d = frenet_pose.d
+            # ob.ros_transform = obs.pose
+            # ob.scale_x = obs.scale.x
+            # ob.scale_y = obs.scale.y
+            # ob.scale_z = obs.scale.z
+            # self._obstacles.append(ob)
         # self.loginfo("No of Obstacles: {}".format(len(self._obstacles)))
+        # self.loginfo("Objects frenet points CB: {}".format(self.objects_frenet_points))
     def odometry_cb(self, odometry_msg):
         # self.loginfo("Received odometry message")
         with self.data_lock:
@@ -456,8 +462,58 @@ class LocalPlannerMPC(CompatibleNode):
         Ddot = derD
         deltadot = derDelta
         thetadot = derTheta
+        a_lat = C2 * v * v * delta + a_long * sin(C1 * delta)
 
         xdot = [float(sdot), ndot, float(alphadot), vdot, Ddot, deltadot, thetadot, Ddot, deltadot, thetadot]
+
+        # print("xdot: ", xdot)
+        return xdot
+    
+    def dynamics(self, x0):
+        """
+        Used for forward propagation. This function takes the dynamics from the acados model.
+        """
+        ## Race car parameters
+        m = 2065.03
+        # C1 =  -0.00021201
+        # C1 =  0.00021201
+        # C2 =  -0.17345602
+
+        lf = 1.169
+        lr = 1.801
+        C1 = lr / (lr + lf)
+        C2 = 1 / (lr + lf) * 0.5
+
+        Cm1 = 9.36424211e+03 
+        Cm2 = 4.08690122e+01  
+        Cr2 = 2.04799356e+00
+        Cr0 = 5.84856121e+02
+        Cr3 = 1.13995833e+01
+        # print("dyn x0: ", x0)
+        s, n, alpha, v, D, delta, theta, derD, derDelta, derTheta = x0
+        
+
+        kapparef_s = self.model.kapparef_s
+
+        Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * tanh(Cr3 * v)
+        # Fxd = (Cm1 - Cm2*v)*D - Cr2*v**2 - Cr0
+
+        a_long = Fxd / m
+        delta = -delta
+        sdot = (v * cos(alpha + C1 * delta)) / (1 - kapparef_s(s) * n)
+        ndot = v * sin(alpha + C1 * delta)
+        alphadot = v * C2 * delta - kapparef_s(s) * sdot                   # alphadot
+        # yaw_rate - kapparef_s(s) * sdot,                     # alphadot
+        vdot = a_long * cos(C1 * delta)                                  # vdot
+        # a_long * cos(C1 * delta) - vglobaldot_s(s) * sdot,
+        Ddot = derD
+        deltadot = derDelta
+        thetadot = derTheta
+        a_lat = C2 * v * v * delta + a_long * sin(C1 * delta)
+
+        xdot = [float(sdot), ndot, float(alphadot), vdot, Ddot, deltadot, thetadot, Ddot, deltadot, thetadot]
+        self.loginfo("a_long: {}".format(a_long))
+        self.loginfo("a_lat: {}".format(a_lat))
         # print("xdot: ", xdot)
         return xdot
     
@@ -524,7 +580,7 @@ class LocalPlannerMPC(CompatibleNode):
             # self.loginfo("Current brake: {}".format(self._current_brake))
             # self.loginfo("Current steering: {}".format(self._current_steering))
             # self.loginfo("Current acceleration: {}".format(self._current_accel))
-            # self.loginfo("Frenet pose: {}".format(self._get_frenet_pose(self._current_pose)))
+            self.loginfo("Frenet pose: {}".format(self._get_frenet_pose(self._current_pose)))
             # return
             # initiailize the acados problem
             if self.acados_solver is None:
@@ -545,6 +601,7 @@ class LocalPlannerMPC(CompatibleNode):
             propagated_x = self.propagate_time_delay(x0p, u0p)
             self.acados_solver.set(0, "lbx", propagated_x)
             self.acados_solver.set(0, "ubx", propagated_x)
+            dynamics = self.dynamics(np.concatenate((x0p, u0p), axis=0))
             # self.acados_solver.set(0, "x", propagated_x)
 
             # self.loginfo("Initial state: {}".format(x0p))
@@ -561,15 +618,15 @@ class LocalPlannerMPC(CompatibleNode):
             # self.acados_solver.set(0, "lbx", np.array([s, n, alpha, v, D, delta, theta]))
             # self.acados_solver.set(0, "ubx", np.array([s, n, alpha, v, D, delta, theta]))
 
-            self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
-            for i, object in enumerate(self._obstacles):
-                if i >= 6:
-                    break
-                frenet_points = [object.frenet_s, object.frenet_d]
-                # print("frenet points: ", frenet_points)
-                # frenet_points.append([object.frenet_s, object.frenet_d])
-                self.objects_frenet_points[i] = np.array(frenet_points, dtype=np.float32)
-            # print("Objects frenet points: ", self.objects_frenet_points)
+            # self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
+            # for i, object in enumerate(self._obstacles):
+            #     if i >= 6:
+            #         break
+            #     frenet_points = [object.frenet_s, object.frenet_d]
+            #     # print("frenet points: ", frenet_points)
+            #     # frenet_points.append([object.frenet_s, object.frenet_d])
+            #     self.objects_frenet_points[i] = np.array(frenet_points, dtype=np.float32)
+            print("Objects frenet points: ", self.objects_frenet_points)
 
             distance2stop = 0.5 * v
             for i in range(1, self.N):
@@ -624,6 +681,9 @@ class LocalPlannerMPC(CompatibleNode):
                     self.constraint.dist_obs6_max,
                 ]))
                 self.acados_solver.set(i, "p", self.objects_frenet_points.flatten())
+
+            # print("obstacles reset")
+            # self.objects_frenet_points = np.ones((6, 2), dtype=np.float32) * -100
 
             s_target = s + self._target_speed * self.Tf
             if s_target > self._global_path_length:
