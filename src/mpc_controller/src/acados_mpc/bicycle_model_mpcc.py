@@ -6,7 +6,7 @@ from casadi import *
 # from tracks.readDataFcn import getTrack
 from utils.convert_traj_track import parseReference, parseGlobal
 import math
-SAFETY_DISTANCE = 4
+SAFETY_DISTANCE = 4.0
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 DIST2STOP = 5
@@ -269,11 +269,11 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     model.dtheta_max = 500
 
     # nonlinear constraint
-    constraint.alat_min = -10  # minimum lateral force [m/s^2]
-    constraint.alat_max =  3 # maximum lateral force [m/s^1]
+    constraint.alat_min = -14  # minimum lateral force [m/s^2]
+    constraint.alat_max =  10 # maximum lateral force [m/s^1]
 
-    constraint.along_min = -10  # minimum longitudinal force [m/s^2]
-    constraint.along_max = 10 # maximum longitudinal force [m/s^2]
+    constraint.along_min = -5  # minimum longitudinal force [m/s^2]
+    constraint.along_max = 3 # maximum longitudinal force [m/s^2]
 
     """ obstacle avoidance """
     constraint.dist_obs1_min = SAFETY_DISTANCE
@@ -312,11 +312,11 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # Define initial conditions
     model.x0 = np.array([0, 0, 0, 0, 0, 0, 0])
-    ql = 1e0     ## if this is low, the car starts to lag; theta is further than s
+    ql = 1e-2     ## if this is low, the car starts to lag; theta is further than s
     qc = 1e-2
-    gamma = 2e-1  ## TODO: Need to check what is the max
-    r1 = 1e-1
-    r2 = 5e-2
+    gamma = 3e-1  ## TODO: Need to check what is the max
+    r1 = 1e-2
+    r2 = 1e-2
     r3 = 1e-3
     # k1 = 1e0
 
