@@ -187,8 +187,8 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
 
     model.v_min = 0  # width of the track [m]
-    #model.v_max = path_length  # width of the track [m]
-    model.v_max = 120  # width of the track [m]
+    model.v_max = path_length  # width of the track [m]
+    # model.v_max = 120  # width of the track [m]
 
     model.throttle_min = -1.0
     model.throttle_max = 1.0
@@ -210,7 +210,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     constraint.alat_max =  5 # maximum lateral force [m/s^1]
 
     constraint.along_min = -5  # minimum longitudinal force [m/s^2]
-    constraint.along_max = 3 # maximum longitudinal force [m/s^2]
+    constraint.along_max = 5 # maximum longitudinal force [m/s^2]
 
     """ obstacle avoidance """
     constraint.dist_obs1_min = SAFETY_DISTANCE
@@ -235,14 +235,14 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     """ ------------------ """
 
 
-    constraint.expr = vertcat(a_long, a_lat, n, sdot, D, delta, dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6)   
+    constraint.expr = vertcat(a_long, a_lat, n, s, D, delta, dist_obs1, dist_obs2, dist_obs3, dist_obs4, dist_obs5, dist_obs6)   
 
     # Define initial conditions
     model.x0 = np.array([0, 0, 0, 0, 0, 0, 0])
     ql = 1e-2     ## if this is low, the car starts to lag; theta is further than s
     qc = 1e-3
     gamma = 2e-1  ## TODO: Need to check what is the max
-    r1 = 5e-4
+    r1 = 1e-2
     r2 = 5e-4
     r3 = 1e-3
     k1 = 5e-1
@@ -250,8 +250,8 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # closest_distance = fmin(dist_obs1, fmin(dist_obs2, fmin(dist_obs3, fmin(dist_obs4, fmin(dist_obs5, dist_obs6)))))
     model.cost_expr_ext_cost = (
-        (ql * (s - theta) ** 2) * fmax(0, sign(path_length - s - DIST2STOP))
-        + qc * n**2 * fmax(0, sign(path_length - s - DIST2STOP))
+        (ql * (s - theta) ** 2) 
+        + qc * n**2 
         - gamma * derTheta * fmax(0, sign(path_length - s - DIST2STOP))
         + r1 * derD**2 * fmax(0, sign(path_length - s - DIST2STOP))
         + r2 * derDelta**2 * fmax(0, sign(path_length - s - DIST2STOP))
