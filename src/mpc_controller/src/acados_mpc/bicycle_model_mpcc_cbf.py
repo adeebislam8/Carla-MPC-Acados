@@ -9,7 +9,7 @@ import math
 SAFETY_DISTANCE = 2.5
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
-DIST2STOP = 5
+DIST2STOP = 0
 
 
 def distance2obs_casadi(s, n, s_obs, n_obs):
@@ -246,6 +246,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     r2 = 5e-4
     r3 = 1e-3
     k1 = 5e-1
+    p1 = 1e-1
 
     # closest_distance = fmin(dist_obs1, fmin(dist_obs2, fmin(dist_obs3, fmin(dist_obs4, fmin(dist_obs5, dist_obs6)))))
     model.cost_expr_ext_cost = (
@@ -258,6 +259,7 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
         + k1 * (1/fmax(1,(dist_obs1 - 2*SAFETY_DISTANCE) + 1e-7))
         + k1 * (1/fmax(1,(dist_obs2 - 2*SAFETY_DISTANCE) + 1e-7))
         + k1 * (1/fmax(1,(dist_obs3 - 2*SAFETY_DISTANCE) + 1e-7))
+        - p1 * (fabs(path_length - s - DIST2STOP + 1e-7)) * fmin(0, sign(path_length - s - DIST2STOP))
 
     )
     model.cost_expr_ext_cost_e =    (     0
