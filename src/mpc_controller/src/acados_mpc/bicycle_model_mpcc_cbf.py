@@ -6,7 +6,7 @@ from casadi import *
 # from tracks.readDataFcn import getTrack
 from utils.convert_traj_track import parseReference, parseGlobal
 import math
-SAFETY_DISTANCE = 2.5
+SAFETY_DISTANCE = 2.8
 DEG2RAD = math.pi/180.0
 RAD2DEG = 180.0/math.pi
 DIST2STOP = 0
@@ -183,19 +183,19 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
 
     # Model bounds
     model.n_min = -0.5  # width of the track [m]
-    model.n_max = 4.5  # width of the track [m]
+    model.n_max = 3.8  # width of the track [m]
 
 
     model.v_min = 0  # width of the track [m]
     model.v_max = path_length  # width of the track [m]
     # model.v_max = 120  # width of the track [m]
 
-    model.throttle_min = -1.0
+    model.throttle_min = -0.5
     model.throttle_max = 1.0
 
  
-    model.delta_min = -30 * DEG2RAD  # minimum steering angle [rad]
-    model.delta_max = 30 * DEG2RAD  # maximum steering angle [rad]
+    model.delta_min = -45 * DEG2RAD  # minimum steering angle [rad]
+    model.delta_max = 45 * DEG2RAD  # maximum steering angle [rad]
 
     # input bounds
     model.ddelta_min = -10  # minimum change rate of stering angle [rad/s]
@@ -206,8 +206,8 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     model.dtheta_max = 200
 
     # nonlinear constraint
-    constraint.alat_min = -5  # minimum lateral force [m/s^2]
-    constraint.alat_max =  5 # maximum lateral force [m/s^1]
+    constraint.alat_min = -35  # minimum lateral force [m/s^2]
+    constraint.alat_max =  35 # maximum lateral force [m/s^1]
 
     constraint.along_min = -5  # minimum longitudinal force [m/s^2]
     constraint.along_max = 5 # maximum longitudinal force [m/s^2]
@@ -242,9 +242,9 @@ def bicycle_model(dt, coeff, knots, path_msg, degree=3):
     ql = 1e-2     ## if this is low, the car starts to lag; theta is further than s
     qc = 1e-3
     gamma = 2e-1  ## TODO: Need to check what is the max
-    r1 = 1e-2
-    r2 = 5e-4
-    r3 = 1e-3
+    r1 = 1e-1
+    r2 = 1e-1
+    r3 = 1.1e-3
     k1 = 5e-1
     p1 = 1e-1
 

@@ -274,7 +274,7 @@ Visualization Manager:
       Marker Topic: /mpc_controller/ego_vehicle/selected_obstacles
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 0
       Value: true
   Enabled: true
@@ -305,7 +305,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 52.6242790222168
+      Distance: 31.82640266418457
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -321,9 +321,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.41039732098579407
+      Pitch: 0.9497969150543213
       Target Frame: ego_vehicle
-      Yaw: 5.1740946769714355
+      Yaw: 2.1609175205230713
     Saved: ~
 Window Geometry:
   Camera:

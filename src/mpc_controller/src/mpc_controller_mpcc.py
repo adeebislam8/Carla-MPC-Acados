@@ -86,7 +86,7 @@ class LocalPlannerMPC(CompatibleNode):
         self.R_matrix = self.get_param('~R_matrix', [[1.0, 0.0], [0.0, 1.0]])  # Default R matrix if not set
         self.Tf = 1.0
         self.N = 10
-        self.t_delay = 0.05
+        self.t_delay = 0.03
         self.obs_range = 300
         self.spline_degree = 3
         self.s_list = np.ones(self.N+1)
@@ -724,6 +724,8 @@ class LocalPlannerMPC(CompatibleNode):
                 elif status == 4:
                     self.loginfo("QP solver failed")
                     # self.emergency_stop()
+                    self.emergency_stop()
+
                     self.loginfo("Emergency stop")
                     return
 
