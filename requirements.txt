@@ -1,0 +1,11 @@
+transforms3d
+empy==3.3.4
+catkin_pkg
+PyYAML
+numpy==1.23.1
+rospkg
+pycryptodomex
+networkx
+gnupg
+opencv-python
+carla==0.9.13
