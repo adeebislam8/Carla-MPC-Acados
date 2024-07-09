@@ -1,1 +1,0 @@
-/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_ackermann_control/share/carla_ackermann_control/cmake/carla_ackermann_controlConfig.cmake

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libracecar_simulator.a  CMakeFiles/racecar_simulator.dir/src/ackermann_kinematics.cpp.o CMakeFiles/racecar_simulator.dir/src/distance_transform.cpp.o CMakeFiles/racecar_simulator.dir/src/scan_simulator_2d.cpp.o
-/usr/bin/ranlib libracecar_simulator.a

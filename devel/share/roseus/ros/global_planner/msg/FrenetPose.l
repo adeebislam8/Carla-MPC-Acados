@@ -1,1 +1,0 @@
-/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/global_planner/share/roseus/ros/global_planner/msg/FrenetPose.l

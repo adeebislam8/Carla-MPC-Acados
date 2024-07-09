@@ -1,1 +1,0 @@
-/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/racecar_simulator/share/racecar_simulator/cmake/racecar_simulatorConfig.cmake

@@ -1,1 +1,0 @@
-/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_spectator_camera/lib/python3/dist-packages/carla_spectator_camera/__init__.py

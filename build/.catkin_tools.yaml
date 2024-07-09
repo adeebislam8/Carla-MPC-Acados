@@ -1,6 +1,0 @@
-devel_space: /home/adeeb/carla-ros-bridge/catkin_ws/devel
-install: false
-install_space: /home/adeeb/carla-ros-bridge/catkin_ws/install
-profile: default
-source_space: /home/adeeb/carla-ros-bridge/catkin_ws/src
-workspace: /home/adeeb/carla-ros-bridge/catkin_ws

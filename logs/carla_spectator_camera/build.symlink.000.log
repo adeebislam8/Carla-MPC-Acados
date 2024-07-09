@@ -1,6 +1,0 @@
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/carla_spectator_camera/cmake/carla_spectator_cameraConfig-version.cmake
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/share/carla_spectator_camera/cmake/carla_spectator_cameraConfig.cmake
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/python3/dist-packages/carla_spectator_camera/__init__.py
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/pkgconfig/carla_spectator_camera.pc
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/carla_spectator_camera/cmake.lock
-Symlinking /home/adeeb/carla-ros-bridge/catkin_ws/devel/lib/carla_spectator_camera/carla_spectator_camera.py

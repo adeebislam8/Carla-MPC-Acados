@@ -1,1 +1,0 @@
-/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/carla_spawn_objects/lib/carla_spawn_objects/carla_spawn_objects.py

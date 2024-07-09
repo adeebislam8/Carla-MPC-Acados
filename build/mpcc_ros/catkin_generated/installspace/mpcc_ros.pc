@@ -1,8 +1,0 @@
-prefix=/home/adeeb/carla-ros-bridge/catkin_ws/install
-
-Name: mpcc_ros
-Description: Description of mpcc_ros
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 

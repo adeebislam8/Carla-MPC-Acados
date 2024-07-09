@@ -1,5 +1,0 @@
-[ 50%] Built target racecar_simulator
-[ 62%] [32m[1mLinking CXX executable /home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/racecar_simulator/lib/racecar_simulator/distance_transform_visualizer[0m
-[ 75%] [32m[1mLinking CXX executable /home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/racecar_simulator/lib/racecar_simulator/simulate[0m
-[ 87%] Built target distance_transform_visualizer
-[100%] Built target simulate

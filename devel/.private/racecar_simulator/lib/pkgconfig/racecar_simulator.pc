@@ -1,8 +1,0 @@
-prefix=/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/racecar_simulator
-
-Name: racecar_simulator
-Description: Description of racecar_simulator
-Version: 0.0.0
-Cflags: -I/home/adeeb/carla-ros-bridge/catkin_ws/src/racecar_simulator/include
-Libs: -L${prefix}/lib -lracecar_simulator
-Requires: 

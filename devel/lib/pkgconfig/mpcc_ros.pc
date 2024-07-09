@@ -1,1 +1,0 @@
-/home/adeeb/carla-ros-bridge/catkin_ws/devel/.private/mpcc_ros/lib/pkgconfig/mpcc_ros.pc

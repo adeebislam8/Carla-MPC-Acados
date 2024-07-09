@@ -1,7 +1,0 @@
-set(mpc_controller_SETUP_PY_SETUP_MODULE "distutils.core")
-set(mpc_controller_SETUP_PY_VERSION "0.0.0")
-set(mpc_controller_SETUP_PY_SCRIPTS "")
-set(mpc_controller_SETUP_PY_PACKAGES "mpc_controller")
-set(mpc_controller_SETUP_PY_PACKAGE_DIRS "src/mpc_controller")
-set(mpc_controller_SETUP_PY_MODULES "")
-set(mpc_controller_SETUP_PY_MODULE_DIRS "")
