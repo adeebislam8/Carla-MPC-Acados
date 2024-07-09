@@ -26,12 +26,15 @@ rm CARLA_0.9.13.tar.gz
 cd ..
 
 # Clone and build acados
-echo "Cloning and building acados..."
-cd src/mpc_controller/src
-git clone https://github.com/acados/acados.git
-cd acados
+# echo "Cloning and building acados..."
+# cd src/mpc_controller/src
+# git clone https://github.com/acados/acados.git
+# cd acados
+
+
 git submodule update --recursive --init
 
+cd  src/mpc_controller/src/acados
 mkdir -p build
 cd build
 cmake -DACADOS_WITH_QPOASES=ON ..
