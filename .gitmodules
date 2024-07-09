@@ -1,3 +1,8 @@
 [submodule "src/ros-bridge"]
 	path = src/ros-bridge
 	url = https://github.com/carla-simulator/ros-bridge.git
+
+[submodule "src/mpc_controller/src/acados"]
+	path = src/mpc_controller/src/acados
+	url = https://github.com/acados/acados.git
+
