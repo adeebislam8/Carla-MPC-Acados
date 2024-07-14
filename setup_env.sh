@@ -14,19 +14,13 @@ sudo apt-get update
 sudo apt-get install -y libomp5
 
 # Download and install CARLA
-echo "Downloading CARLA..."
-mkdir -p carla
-cd carla
-wget https://carla-releases.s3.us-east-005.backblazeb2.com/Linux/CARLA_0.9.13.tar.gz
-tar -xf CARLA_0.9.13.tar.gz
-# rm CARLA_0.9.13.tar.gz
+# echo "Downloading CARLA..."
+# mkdir -p carla
+# cd carla
+# wget https://carla-releases.s3.us-east-005.backblazeb2.com/Linux/CARLA_0.9.13.tar.gz
+# tar -xf CARLA_0.9.13.tar.gz
 
-## rosbridge is setup for only 0.9.13
-# wget https://carla-releases.s3.us-east-005.backblazeb2.com/Linux/CARLA_0.9.15.tar.gz
-# tar -xf CARLA_0.9.15.tar.gz
-# rm CARLA_0.9.15.tar.gz
-
-cd ..
+# cd ..
 
 
 
