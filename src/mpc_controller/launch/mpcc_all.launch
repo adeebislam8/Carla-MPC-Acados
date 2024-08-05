@@ -30,7 +30,7 @@
   <!-- Publish the target speed -->
   <node pkg="rostopic" type="rostopic" name="rostopic" args="pub /carla/$(arg role_name)/target_speed std_msgs/Float64 $(arg target_speed)"/>
   
-bddddddd
+
   <arg name="control_time_step" default="0.05"/>
 
   <!-- rviz -->

@@ -5,3 +5,17 @@ conda activate residual_mpc
 ./setup_carla.sh
 ./setup_env.sh
 ```
+
+## to run mpc
+```
+./carla/CarlaUE4.sh
+# different terminal
+./run_mpc.sh
+```
+
+## to run mpc with CBF obstacle avoidance
+```
+./carla/CarlaUE4.sh
+# different terminal
+./run_mpc_obs.sh
+```
