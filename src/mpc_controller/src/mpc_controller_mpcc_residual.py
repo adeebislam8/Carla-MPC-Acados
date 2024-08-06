@@ -40,7 +40,7 @@ from carla_ad_agent.misc import distance_vehicle
 from carla_msgs.msg import CarlaEgoVehicleControl, CarlaEgoVehicleStatus  # pylint: disable=import-error
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import Pose, PoseStamped
-from std_msgs.msg import Float64, Int16, Float32MultiArray
+from std_msgs.msg import Float64
 from visualization_msgs.msg import Marker, MarkerArray
 
 from global_planner.srv import Frenet2WorldService, World2FrenetService
@@ -116,10 +116,6 @@ class LocalPlannerMPC(CompatibleNode):
         self.s = 0
         self.n = 0
 
-        self.throttle_residual = 0
-        self.steering_residual = 0
-        self.emergency_stop_alert = False
-
         self.acados_solver = None
         self.path_initialized = False
         self._path_msg = None
@@ -170,17 +166,7 @@ class LocalPlannerMPC(CompatibleNode):
             self.target_speed_cb,
             QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
 
-        self._mpc_rl_residual_subscriber = self.new_subscription(
-            Float32MultiArray,
-            '/mpc_rl/residual',
-            self.mpc_rl_residual_cb,
-            qos_profile=10)
-        
-        self._mpc_rl_emergency_stop_subscriber = self.new_subscription(
-            Int16,
-            '/mpc_rl/emergency_stop',
-            self.mpc_rl_emergency_stop_cb,
-            qos_profile=10)
+
 
 
         # publishers
@@ -189,18 +175,13 @@ class LocalPlannerMPC(CompatibleNode):
             "/mpc_controller/{}/selected_obstacles".format(role_name),
             qos_profile=10)
         
-        self._mpc_rl_acados_init_publisher = self.new_publisher(
-            Int16,
-            '/mpc_rl/acados_init',
-            qos_profile=10)
-        
         self._target_pose_publisher = self.new_publisher(
             Marker,
             "/mpc_controller/{}/next_target".format(role_name),
             qos_profile=10)
         self._control_cmd_publisher = self.new_publisher(
             CarlaEgoVehicleControl,
-            "/carla/{}/vehicle_control_cmd".format(role_name),
+            "/carla/{}/vehicle_control_mpc_cmd".format(role_name),
             qos_profile=10)
         
         self._reference_path_publisher = self.new_publisher(
@@ -216,15 +197,7 @@ class LocalPlannerMPC(CompatibleNode):
         # self._vehicle_controller = VehicleMPCController(
         #     self)
 
-    def mpc_rl_emergency_stop_cb(self, msg):
-        if msg.data == 1:
-            self.emergency_stop_alert = True
-        if msg.data == 0:
-            self.emergency_stop_alert = False
 
-    def mpc_rl_residual_cb(self, msg):
-        self.throttle_residual = msg.data[0]
-        self.steering_residual = msg.data[1]
 
     def obstacle_markers_cb(self, marker_array):
         # with self.data_lock:
@@ -611,17 +584,9 @@ class LocalPlannerMPC(CompatibleNode):
             # return
             # initiailize the acados problem
             if self.acados_solver is None:
-                acados_init_signal = Int16()
-                acados_init_signal.data = 0
-                self._mpc_rl_acados_init_publisher.publish(acados_init_signal)
-                self.emergency_stop()
-
                 self.constraint, self.model, self.acados_solver = acados_settings(self.Tf, self.N, self.spline_coeffs, self.spline_knots, self._path_msg, self.spline_degree)
                 self.loginfo("Initialized acados solver")
 
-            acados_init_signal = Int16()
-            acados_init_signal.data = 1
-            self._mpc_rl_acados_init_publisher.publish(acados_init_signal)   
    
             frenet_pose = self._get_frenet_pose(self._current_pose)
             # self.loginfo("Frenet pose in run step: {}".format(frenet_pose))
@@ -760,8 +725,8 @@ class LocalPlannerMPC(CompatibleNode):
                     self.loginfo("QP solver failed")
                     # self.emergency_stop()
                     self.emergency_stop()
-
-                    self.loginfo("Emergency stop")
+                    self.loginfo("Emergency stop. Reinitalizing acados solver")
+                    self.acados_solver = None
                     return
 
             cost = self.acados_solver.get_cost()
@@ -819,19 +784,6 @@ class LocalPlannerMPC(CompatibleNode):
                 # print("target_D: ", self.target_D)
                 # print("target_delta: ", self.target_delta)
 
-                ########################################################
-                #### RESIDUAL MPC - RL ####
-                print("Throttle: ", self.target_D)
-                print("Steering: ", self.target_delta)
-                print("Throttle residual: ", self.throttle_residual)
-                print("Steering residual: ", self.steering_residual)
-                self.target_D = np.clip(self.target_D + self.throttle_residual, -1, 1)
-                normalized_steer = self.target_delta / self.model.delta_max
-                steer = np.clip(normalized_steer + self.steering_residual, -1, 1)
-                self.target_delta = steer * self.model.delta_max
-                ########################################################
-
-          
                 if self.target_D >= 0:
                     self.target_gas = self.target_D
                     self.target_brake = 0
@@ -849,12 +801,8 @@ class LocalPlannerMPC(CompatibleNode):
                 control_msg.hand_brake = False
                 control_msg.manual_gear_shift = False
                 # print("Control message: ", control_msg)
-                if self.emergency_stop_alert:
-                    self.emergency_stop()
-                    self.loginfo("Emergency stop from RL")
-                else:
-                    self._control_cmd_publisher.publish(control_msg)
-
+                self._control_cmd_publisher.publish(control_msg)
+                
                 current_time = rospy.get_time()
                 processing_time = max(current_time - self.time, 1e-9)  # Ensure processing time is never zero
                 frequency = 1.0 / processing_time

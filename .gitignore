@@ -4,5 +4,7 @@ build
 .catkin_tools
 logs
 .catkin_workspace
+wandb
+src/mpc_controller/envs/wandb
 
 

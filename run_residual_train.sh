@@ -8,9 +8,12 @@ export ACADOS_SOURCE_DIR="${PWD}/src/mpc_controller/src/acados/"
 source devel/setup.bash
 
 roslaunch mpc_controller mpcc_all.launch &
-sleep 5
+sleep 2
 
-python ${PWD}/carla/PythonAPI/examples/generate_traffic.py --asynch --filterv vehicle.toyota* -s 1 -w 0 -n 40 
+python ${PWD}/carla/PythonAPI/examples/generate_traffic.py --asynch --filterv vehicle.toyota* -s 1 -w 0 -n 40 &
 
+sleep 2
+
+python ${PWD}/src/mpc_controller/envs/mpc_ros_env.py
 
 
