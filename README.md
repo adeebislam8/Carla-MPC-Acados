@@ -19,3 +19,11 @@ conda activate residual_mpc
 # different terminal
 ./run_mpc_obs.sh
 ```
+
+
+## to run mpc with CBF obstacle avoidance + train residual learning
+```
+./carla/CarlaUE4.sh
+# different terminal
+./run_residual_train.sh
+```
