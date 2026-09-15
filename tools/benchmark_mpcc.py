@@ -50,6 +50,35 @@ def run(args):
 
     from mpc_controller.envs.carlaEnv import CarlaMPCEnv
 
+    # Same harness for nominal and residual so the ablation is comparable:
+    #   (no --model)                      -> B0/B1, pure MPCC
+    #   --model X --residual-mode fixed   -> B2, fixed residual scale
+    #   --model X --residual-mode adaptive-> B5, CBF-derived authority
+    model = None
+    obs_norm = None
+    if args.model:
+        from stable_baselines3 import SAC, PPO, TD3
+        algo = {'sac': SAC, 'ppo': PPO, 'td3': TD3}[args.algo]
+        model = algo.load(args.model)
+        print(f"loaded {args.algo.upper()} policy from {args.model}")
+
+        # A policy trained under VecNormalize saw normalised observations; fed
+        # raw ones it is being asked about inputs it has never seen.  Use the
+        # TRAINING statistics (never re-estimate on the eval town) -- that is
+        # the whole point of freezing them for a distribution-shift experiment.
+        vn = args.vecnormalize
+        if vn is None:
+            guess = os.path.join(os.path.dirname(args.model), 'vecnormalize.pkl')
+            vn = guess if os.path.exists(guess) else None
+        if vn:
+            from stable_baselines3.common.vec_env import VecNormalize
+            obs_norm = VecNormalize.load(vn, venv=None)
+            obs_norm.training = False
+            print(f"  applying observation normalisation from {vn}")
+        else:
+            print("  WARNING: no vecnormalize.pkl found -- if the policy was "
+                  "trained with VecNormalize its inputs are now wrong")
+
     episodes = []
     t_start = time.time()
 
@@ -77,11 +106,12 @@ def run(args):
             route_max_m=args.route_max,
             lookahead=args.lookahead,
             r3_cap=args.r3_cap,
-            residual_mode='fixed',   # alpha == 1, but action is 0 -> pure MPCC
+            residual_mode=args.residual_mode,
         )
         interrupted = False
         try:
-            _run_seed(env, args, seed, episodes)
+            _run_seed(env, args, seed, episodes, model=model,
+                      obs_norm=obs_norm)
         except KeyboardInterrupt:
             print("\ninterrupted -- reporting on the episodes completed so far")
             interrupted = True
@@ -100,6 +130,9 @@ def run(args):
         'episodes_completed': len(episodes),
         'target_speed': args.target_speed,
         'steer_norm_deg': args.steer_norm_deg,
+        'model': args.model,
+        'algo': args.algo if args.model else None,
+        'residual_mode': args.residual_mode,
         'qc': args.qc,
         'a_long': args.a_long,
         'b_lat': args.b_lat,
@@ -119,7 +152,7 @@ def run(args):
     }
 
 
-def _run_seed(env, args, seed, episodes):
+def _run_seed(env, args, seed, episodes, model=None, obs_norm=None):
     zero = np.zeros(2, dtype=float)
     for ep in range(args.episodes):
         obs, _ = env.reset()
@@ -130,7 +163,12 @@ def _run_seed(env, args, seed, episodes):
         info = {}
 
         while not done and steps < args.max_steps:
-            obs, reward, done, truncated, info = env.step(zero)
+            if model is None:
+                act = zero
+            else:
+                _o = obs if obs_norm is None else obs_norm.normalize_obs(obs)
+                act, _ = model.predict(_o, deterministic=True)
+            obs, reward, done, truncated, info = env.step(act)
             n_hist.append(float(env.current_d))
             v_hist.append(float(env.current_speed))
             steps += 1
@@ -166,7 +204,15 @@ def _run_seed(env, args, seed, episodes):
             'collision_in_fallback': info.get('collision_in_fallback'),
         }
         episodes.append(rec)
-        print(f"  s{seed} ep {ep:3d}  {rec['outcome']:<9} "
+        # Inline progress: episodes done / total for this seed, a coarse bar, and
+        # a running success tally, so a 50-minute sweep shows movement rather
+        # than going quiet between configs.
+        _done, _tot = ep + 1, args.episodes
+        _bar = '#' * int(20 * _done / _tot) + '.' * (20 - int(20 * _done / _tot))
+        _seed_eps = [e for e in episodes if e['seed'] == seed]
+        _ok = sum(1 for e in _seed_eps if e['outcome'] == 'success')
+        print(f"  [{_bar}] {_done:3d}/{_tot}  ok={_ok:2d}  "
+              f"s{seed} ep {ep:3d}  {rec['outcome']:<9} "
               f"overtakes={rec['overtakes']:2d}  "
               f"progress={100*rec['progress_frac']:5.1f}%  "
               f"solver_fail={100*rec['solver_failure_rate']:.2f}%")
@@ -268,7 +314,11 @@ def write_report(res, path):
     L.append(f"  route length  : {res.get('route_min', 50)} m min, "
              f"{res.get('route_max') or 'unbounded'} m max")
     L.append(f"  wall time     : {res['wall_time_s']/60:.1f} min")
-    L.append(f"  driven with action = [0, 0]  -> pure MPCC, no RL residual")
+    if res.get('model'):
+        L.append(f"  policy        : {res['model']}  ({res.get('algo')}, "
+                 f"residual_mode={res.get('residual_mode')})")
+    else:
+        L.append(f"  driven with action = [0, 0]  -> pure MPCC, no RL residual")
     if res.get('rendered'):
         L.append(f"  rendered      : yes ({res.get('camera')}), slowdown "
                  f"{res.get('slowdown')} s/step -- physics unaffected")
@@ -480,6 +530,19 @@ def main():
                     help='maximum PATH length (m). Unbounded by default, which '
                          'lets route difficulty vary enormously and dominate '
                          'the seed-to-seed variance.')
+    ap.add_argument('--model', default=None,
+                    help='path to a trained residual policy (.zip). Omit for '
+                         'pure MPCC -- the action is then always [0, 0].')
+    ap.add_argument('--algo', default='sac', choices=['sac', 'ppo', 'td3'],
+                    help='algorithm the --model was trained with')
+    ap.add_argument('--residual-mode', default='fixed',
+                    choices=['fixed', 'adaptive'],
+                    help="'fixed' = u_nom + residual_max*a (B2); 'adaptive' = "
+                         "scaled by the CBF-derived alpha_safe (B5). Irrelevant "
+                         "without --model, since the action is zero.")
+    ap.add_argument('--vecnormalize', default=None,
+                    help='path to vecnormalize.pkl from training. Auto-detected '
+                         'next to --model if not given.')
     ap.add_argument('--no-diag', action='store_true',
                     help='disable solver diagnostics (on by default; writes '
                          'diagnostics/*.npz for analyze_solver_failures.py)')

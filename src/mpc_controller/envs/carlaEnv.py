@@ -84,7 +84,26 @@ class CarlaMPCEnv(gym.Env):
         self.timeout = timeout
         self.client = carla.Client(host, port)
         self.client.set_timeout(timeout)
-        self.world = self.client.load_world(towns[0])
+
+        # Only reload the world if it is not already the town we want.
+        #
+        # load_world() was called unconditionally, and a fresh CarlaMPCEnv is
+        # built per seed -- but every seed in a benchmark run uses the SAME town,
+        # so 4 of every 5 loads were redundant (77 -> 17 across a full
+        # train+evaluate sweep).  That matters because load_world leaks on the
+        # CARLA server in 0.9.x: repeated calls grow RSS until it dies, which is
+        # why `_load_random_town` is commented out in reset() with the note
+        # "Disable because of resource".  Each call also costs several seconds
+        # and gives the respawn path another chance to strand actors.
+        try:
+            current = self.client.get_world().get_map().name.split('/')[-1]
+        except Exception:
+            current = None
+        if current == towns[0]:
+            self.world = self.client.get_world()
+            print(f"  {towns[0]} already loaded, reusing it")
+        else:
+            self.world = self.client.load_world(towns[0])
         self.map = self.world.get_map()
         
         # Multi-town setup
@@ -119,6 +138,13 @@ class CarlaMPCEnv(gym.Env):
         self._carla_max_steer = np.deg2rad(70.0)
         self.lateral_accel = 0.0
         
+        # How close to the end counts as finished.  Shared by the ego's goal
+        # test and the NPCs' retirement so they cannot disagree: NPCs used to
+        # keep driving until path_length - 3.0 while the ego finished at
+        # path_length - 10, leaving them active in exactly the stretch the ego
+        # was trying to complete.
+        self.goal_margin_m = 10.0
+
         self._road_widths = None
         self._road_width_s = None
         
@@ -793,37 +819,49 @@ class CarlaMPCEnv(gym.Env):
         npc_data["s"] = s
 
     def _respawn_if_finished(self, npc_data):
-        s = npc_data["s"]
+        """
+        Recycle an NPC back to the start once it nears the end of the route.
 
-        if s > self.path_length - 3.0:
-            s_new = 2.0
-            respawn_buffer = 5.0
-            
-            # Check if ego vehicle is too close to the spawn point
-            ego_in_respawn_zone = (self.current_s < s_new + respawn_buffer)
-            
-            if ego_in_respawn_zone:
-                npc = npc_data["actor"]
-                try:
-                    if npc.is_alive:
-                        npc.destroy()
-                except:
-                    pass
-                
-                # Mark this NPC as destroyed
+        Two changes from the original:
+
+        * It triggers at `path_length - goal_margin_m`, the SAME point the ego
+          finishes, rather than `path_length - 3.0`.  NPCs used to keep driving
+          in the last few metres while the ego was completing there, which is
+          where the end-of-route collisions were happening.
+        * If the ego is near the respawn point it now WAITS and retries next
+          step, instead of destroying the NPC.  The old code branched between
+          destroying and teleporting depending on where the ego happened to be,
+          which made the behaviour position-dependent and hard to reason about.
+          Waiting is the same decision every time.
+        """
+        RESPAWN_S = 2.0
+        EGO_BUFFER = 15.0      # do not drop a car on top of the ego
+
+        if npc_data["s"] <= self.path_length - self.goal_margin_m:
+            return
+
+        npc = npc_data.get("actor")
+        if npc is None:
+            return
+
+        # An NPC spawned near the end finishes while the ego is still at the
+        # start, so this guard does fire in practice -- wait for the ego to
+        # clear the respawn point rather than spawning into it.
+        if abs(self.current_s - RESPAWN_S) < EGO_BUFFER:
+            return
+
+        try:
+            if not npc.is_alive:
                 npc_data["actor"] = None
                 return
-            
-            # Safe to respawn
-            x, y, yaw = self.frenet_converter.frenet_to_world(s_new, 0.0, 0.0)
-
-            npc = npc_data["actor"]
+            x, y, yaw = self.frenet_converter.frenet_to_world(RESPAWN_S, 0.0, 0.0)
             npc.set_transform(carla.Transform(
                 carla.Location(x=x, y=y, z=0.5),
                 carla.Rotation(yaw=np.rad2deg(yaw))
             ))
-
-            npc_data["s"] = s_new
+            npc_data["s"] = RESPAWN_S
+        except (RuntimeError, AttributeError):
+            npc_data["actor"] = None
 
 
     def _initialize_mpc(self):
@@ -999,94 +1037,148 @@ class CarlaMPCEnv(gym.Env):
 
         return np.clip(obs, -1e6, 1e6)
     
-    def _calculate_reward(self, action: np.ndarray) -> float:
-    
+    def _nominal_counterfactual(self, u_nom, u_final):
+        """
+        One-step model counterfactual: how much better is the state the residual
+        steers us to than the one the nominal action alone would have reached?
+
+        A true residual-relative reward needs to know what u_nom would have done,
+        which CARLA cannot tell us without forking the simulator.  But the
+        residual's immediate effect IS computable: propagate both actions one
+        step through the same modelled dynamics the controller uses, and compare.
+
+        Returns (value_final - value_nominal), positive when the residual helped.
+        This is attributable to the action by construction, which is the whole
+        point -- collisions and route completion are dominated by the MPCC, so
+        grading the policy on them is mostly grading something it did not do.
+        """
+        auth = getattr(self, 'residual_authority', None)
+        if auth is None:
+            return 0.0
+        try:
+            def value(u):
+                delta = float(u[1]) * auth.delta_max
+                s_n, n_n = auth._propagate(
+                    self.current_s, self.current_d, self.current_alpha,
+                    self.current_speed, delta)
+                # Cheap cost-to-go proxy: progress is good, lateral error is bad.
+                return 1.0 * (s_n - self.current_s) - 0.5 * (n_n ** 2)
+            return float(value(u_final) - value(u_nom))
+        except Exception:
+            return 0.0
+
+    def _calculate_reward(self, action: np.ndarray,
+                          u_nom=None, u_final=None) -> float:
+        """
+        Reward for the RESIDUAL policy.
+
+        Design notes, because several earlier terms were actively harmful:
+
+        * Terminal bonuses are nearly invisible at gamma = 0.99 -- a +200 goal
+          bonus 800 steps away is worth 0.06, less than one step of the progress
+          term.  Episode outcome therefore has to arrive as dense shaping, not as
+          a lump at the end.
+        * The obstacle-proximity and heading penalties duplicated constraints the
+          MPCC already enforces (the CBF, and qa*alpha^2).  They punished the
+          residual for the nominal controller's situation, adding reward variance
+          that is uncorrelated with the action.  Removed.
+        * The deviation penalty is now GATED on an obstacle being ahead, matching
+          the MPCC cost: hold the lane normally, but do not punish the lateral
+          excursion an overtake requires.
+        * Finish time is measured in SIMULATION time.  It used time.time(), so
+          the reward depended on machine speed, rendering and logging.
+        """
         if self.collision:
             return -200.0
-        
-        # Progress reward
+
+        sim_time = self.current_step * self.mpc_dt
+
+        # --- progress -------------------------------------------------------
         progress = self.current_s - self.prev_s
         reward = progress / (self.target_speed * self.mpc_dt)
-        
-        # Lane boundary
+
+        # --- lateral deviation, gated on an obstacle ahead -------------------
+        # Same logic as the MPCC's overtake gate: leaving the lane is penalised
+        # normally and forgiven while there is a car to pass.  Without the gate
+        # this term fights the overtake bonus on every step of a manoeuvre.
         idx = np.argmin(np.abs(self._road_width_s - self.current_s))
         n_min = -self._road_widths[idx, 0]
-        n_max =  self._road_widths[idx, 1]
+        n_max = self._road_widths[idx, 1]
         road_width = n_max - n_min
         d_normalized = (self.current_d - n_min) / road_width
-        edge_penalty = -2.0 * (2 * d_normalized - 1) ** 4
-        reward += edge_penalty
-        
+
+        obstacle_ahead = False
+        for s_obs, _ in self.selected_obstacles:
+            if s_obs > -50.0 and 0.0 < (s_obs - self.current_s) < 25.0:
+                obstacle_ahead = True
+                break
+        gate = 0.1 if obstacle_ahead else 1.0
+
+        reward += gate * (-2.0 * (2 * d_normalized - 1) ** 4)
+
+        # Leaving the drivable corridor is never acceptable, gate or not.
         if not (n_min < self.current_d < n_max):
             reward -= 5.0
-        
-        # Lateral acceleration penalty
+
+        # --- comfort / speed -------------------------------------------------
         reward -= 0.1 * abs(self.lateral_accel)
-        
-        # Heading penalty
-        reward -= abs(self.current_alpha) * 2.0
-        
-        # Speed tracking
+
         speed_error = abs(self.current_speed - self.target_speed)
         reward -= 0.05 * speed_error
         if self.current_speed > self.target_speed * 1.3:
             reward -= 1.0
-        
-        # Stall penalty
+
+        # Stalling is worse than being slow: dense, so it survives discounting.
         if self.current_speed < 1.0:
             reward -= 5.0
-        
-        # Obstacle avoidance
-        for obs in self.selected_obstacles:
-            if obs[0] > -50:
-                dist = np.sqrt(
-                    (self.current_s - obs[0])**2 + 
-                    ((self.current_d - obs[1]) * 2)**2
-                )
-                if dist < 6.0:
-                    reward -= 3.0
-        
-        # --- OVERTAKING REWARD ---
+
+        # --- residual-relative term -----------------------------------------
+        # Attributable to the action by construction.  Small weight: it shapes,
+        # it does not dominate.
+        if u_nom is not None and u_final is not None:
+            reward += 2.0 * self._nominal_counterfactual(u_nom, u_final)
+
+        # --- keep the residual small unless it earns its place ---------------
+        # "RL is an optional adaptive correction, not an equally trusted
+        # controller" -- make that a property of the objective, not a hope.
+        reward -= 0.05 * float(np.sum(np.square(action)))
+
+        # --- overtaking -------------------------------------------------------
         for npc_data in self.racing_npcs:
             npc = npc_data.get("actor")
             if npc is None or not npc.is_alive:
                 continue
             npc_id = npc.id
             npc_s = npc_data.get("s", -999)
-            
-            # Ignore NPCs that have respawned behind us
-            if npc_s < self.current_s - 50.0:  # way behind = just respawned
+            if npc_s < self.current_s - 50.0:      # respawned behind us
                 continue
-            
-            # NPC must have been meaningfully ahead at some point
-            # Only count overtake if NPC is within a reasonable window behind us
             ds = self.current_s - npc_s
             if 5.0 < ds < 40.0 and npc_id not in self.overtaken_npcs:
                 self.overtaken_npcs.add(npc_id)
                 reward += 50.0
                 print(f"🏎️  Overtook NPC {npc_id}! Total overtakes: {len(self.overtaken_npcs)}")
-        
-        # --- GOAL REACHED ---
-        if self.current_s >= self.path_length - 10:
-            # Base completion bonus
+
+        # --- urgency, applied densely ----------------------------------------
+        # A finish-time bonus paid only at the goal is discounted to nothing, so
+        # the pressure to keep moving is applied every step instead.  This is
+        # what stops the policy dawdling without needing a terminal bonus to
+        # survive 800 steps of discounting.
+        reward -= 0.02
+
+        # --- goal -------------------------------------------------------------
+        if self.current_s >= self.path_length - self.goal_margin_m:
             reward += 200.0
-            
-            # Time bonus — faster finish = more reward
-            # At target speed, expected time = path_length / target_speed
-            expected_time = self.path_length / self.target_speed
-            actual_time = time.time() - self.start_time
-            time_ratio = expected_time / max(actual_time, 1.0)  # >1 means faster than expected
-            time_bonus = 100.0 * time_ratio  # scales with how fast you finished
+            expected_time = self.path_length / max(self.target_speed, 1e-6)
+            time_ratio = expected_time / max(sim_time, 1.0)
+            time_bonus = 100.0 * min(time_ratio, 2.0)     # simulation time
             reward += time_bonus
-            
-            # Overtaking bonus at finish — reward total cars beaten
             overtake_finish_bonus = len(self.overtaken_npcs) * 25.0
             reward += overtake_finish_bonus
-            
-            print(f"🏁 Finished! Time bonus: {time_bonus:.1f}, Overtakes: {len(self.overtaken_npcs)} (+{overtake_finish_bonus:.1f})")
-        
+            print(f"🏁 Finished in {sim_time:.1f}s sim! Time bonus: {time_bonus:.1f}, "
+                  f"Overtakes: {len(self.overtaken_npcs)} (+{overtake_finish_bonus:.1f})")
+
         return reward
-    
+
     def _authority_metrics(self) -> Dict:
         """
         Residual-authority metrics from Section 17.2 of the project spec:
@@ -1125,28 +1217,32 @@ class CarlaMPCEnv(gym.Env):
         
         # Collision
         if self.collision:
-            elapsed = time.time() - self.start_time
+            # SIMULATION time, not wall-clock.  This feeds `lap_time` in the
+            # info dict and hence the benchmark's "mean lap time" column, which
+            # was therefore measuring how fast the COMPUTER ran -- rendering,
+            # logging and diagnostics all changed it.
+            elapsed = self.current_step * self.mpc_dt
             out = {"done_reason": "collision", "lap_time": elapsed}
             out.update({f"collision_{k}": v for k, v in self.collision_info.items()})
             return True, out
         
         # Goal reached
-        if self.current_s >= self.path_length - 10:
-            elapsed = time.time() - self.start_time
+        if self.current_s >= self.path_length - self.goal_margin_m:
+            elapsed = self.current_step * self.mpc_dt
             return True, {"done_reason": "success", "lap_time": elapsed}
         
         # Stalled
         if self.current_speed < 1.0:
             self.speed_stall_count = getattr(self, 'speed_stall_count', 0) + 1
             if self.speed_stall_count > 500:
-                elapsed = time.time() - self.start_time
+                elapsed = self.current_step * self.mpc_dt
                 return True, {"done_reason": "stall", "lap_time": elapsed}
         else:
             self.speed_stall_count = 0
         
         # Max steps
         if self.current_step >= self.max_steps:
-            elapsed = time.time() - self.start_time
+            elapsed = self.current_step * self.mpc_dt
             return True, {"done_reason": "timeout", "lap_time": elapsed}
         
         return False, {"done_reason": "running"}
@@ -1400,7 +1496,10 @@ class CarlaMPCEnv(gym.Env):
             
             # Get new observation
             obs = self._get_observation()
-            reward = self._calculate_reward(action)
+            reward = self._calculate_reward(
+                action,
+                u_nom=(mpc_throttle, mpc_steering),
+                u_final=(final_throttle, final_steering))
             done, info = self._check_done()
             info.update(self._authority_metrics())
 

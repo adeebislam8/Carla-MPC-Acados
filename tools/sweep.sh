@@ -75,6 +75,7 @@ done
 
 LABELS=()
 FAILED=()
+IDX=0
 for cfg in "${CONFIGS[@]}"; do LABELS+=("${cfg%%|*}"); done
 
 if [ "$COMPARE_ONLY" -eq 0 ]; then
@@ -87,10 +88,20 @@ if [ "$COMPARE_ONLY" -eq 0 ]; then
     label="${cfg%%|*}"
     flags="${cfg#*|}"
 
+    IDX=$((IDX + 1))
+    NOW=$(date +%s); ELAPSED=$((NOW - START))
+    if [ "$IDX" -gt 1 ]; then
+      PER=$((ELAPSED / (IDX - 1)))
+      ETA=$(( PER * (${#CONFIGS[@]} - IDX + 1) ))
+      ETA_TXT=$(printf "%dm" $((ETA / 60)))
+    else
+      ETA_TXT="?"
+    fi
     echo
-    echo "------------------------------------------------------------------"
-    echo ">>> ${label}   ${flags:-(defaults)}"
-    echo "------------------------------------------------------------------"
+    echo "=================================================================="
+    echo ">>> [${IDX}/${#CONFIGS[@]}] ${label}   ${flags:-(defaults)}"
+    echo "    elapsed $((ELAPSED / 60))m   remaining ~${ETA_TXT}"
+    echo "=================================================================="
     [ "$DRY" -eq 1 ] && { echo "    (dry run)"; continue; }
 
     # Fresh diagnostics dir per config so runs are not mixed together.
