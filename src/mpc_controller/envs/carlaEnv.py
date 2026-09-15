@@ -49,6 +49,8 @@ class CarlaMPCEnv(gym.Env):
         b_lat_obs: float = None,
         apex_gain: float = None,
         gate_depth: float = None,
+        route_min_m: float = 50.0,
+        route_max_m: float = None,
         lookahead: float = None,
         r3_cap: float = None,
         residual_mode: str = 'adaptive',
@@ -167,6 +169,15 @@ class CarlaMPCEnv(gym.Env):
         self.a_long_obs = a_long_obs
         self.b_lat_obs = b_lat_obs
         self.apex_gain = apex_gain
+        # Route length bounds.  Only a 50 m MINIMUM straight-line distance was
+        # enforced, with no maximum, so routes ran from 50 m to the map diagonal.
+        # An episode is pass/fail over the whole route, so length is difficulty:
+        # at ~12% failure per junction, 1 junction gives 88% success and 8 gives
+        # 36%.  That variance dominated every comparison -- seed-to-seed spread
+        # (23 points) exceeded the spread between controller configurations.
+        # route_max_m caps the actual path length, not the straight-line gap.
+        self.route_min_m = route_min_m
+        self.route_max_m = route_max_m
         self.gate_depth = gate_depth
         self.lookahead = lookahead
         self.r3_cap = r3_cap
@@ -1210,7 +1221,7 @@ class CarlaMPCEnv(gym.Env):
                     (spawn_point.location.y - goal_point.location.y)**2
                 )
                 
-                if dist > 50.0:
+                if dist > self.route_min_m:
                     print(f"spawn: {spawn_point}")
                     print(f"goal: {goal_point}")
                     # Spawn vehicle
@@ -1224,6 +1235,14 @@ class CarlaMPCEnv(gym.Env):
                     if not self._generate_path(spawn_point, goal_point):
                         self._destroy_actors()
                         #self.vehicle.destroy()
+                        continue
+
+                    # Reject over-long routes.  Checked on the ACTUAL path
+                    # length, which on a grid map is well above the
+                    # straight-line gap already filtered above.
+                    if (self.route_max_m is not None
+                            and self.path_length > self.route_max_m):
+                        self._destroy_actors()
                         continue
                     
                     # Initialize MPC

@@ -73,6 +73,8 @@ def run(args):
             b_lat_obs=args.b_lat,
             apex_gain=args.apex_gain,
             gate_depth=args.gate_depth,
+            route_min_m=args.route_min,
+            route_max_m=args.route_max,
             lookahead=args.lookahead,
             r3_cap=args.r3_cap,
             residual_mode='fixed',   # alpha == 1, but action is 0 -> pure MPCC
@@ -103,6 +105,8 @@ def run(args):
         'b_lat': args.b_lat,
         'apex_gain': args.apex_gain,
         'gate_depth': args.gate_depth,
+        'route_min': args.route_min,
+        'route_max': args.route_max,
         'lookahead': args.lookahead,
         'r3_cap': args.r3_cap,
         'town': args.town,
@@ -261,6 +265,8 @@ def write_report(res, path):
     L.append(f"  corner slowdown: lookahead {_la} m, r3_cap {_r3}"
              f"  -> derTheta {0.4/(2*0.015):.1f} straight / {0.4/(2*_r3):.1f} in a bend")
     L.append(f"  town          : {res.get('town', res.get('towns', ['?'])[0])}")
+    L.append(f"  route length  : {res.get('route_min', 50)} m min, "
+             f"{res.get('route_max') or 'unbounded'} m max")
     L.append(f"  wall time     : {res['wall_time_s']/60:.1f} min")
     L.append(f"  driven with action = [0, 0]  -> pure MPCC, no RL residual")
     if res.get('rendered'):
@@ -281,6 +287,10 @@ def write_report(res, path):
         L.append(f"  overtakes / episode      {s['overtakes_per_episode']:8.2f}"
                  f"   (total {s['overtakes_total']})")
         L.append(f"  mean progress            {100*s['mean_progress_frac']:8.1f}%")
+        _pl = [e['path_length_m'] for e in res['per_episode']]
+        if _pl:
+            L.append(f"  route length             {statistics.mean(_pl):8.1f} m mean"
+                     f"  ({min(_pl):.0f}-{max(_pl):.0f} m)")
         L.append(f"  mean speed               {s['mean_speed']:8.2f} m/s")
         L.append(f"  mean lap time (success)  {s['mean_lap_time_success']:8.2f} s")
         L.append("")
@@ -464,6 +474,12 @@ def main():
     ap.add_argument('--r3-cap', type=float, default=None,
                     help='cap on the curvature slowdown (model default 3e-2, '
                          'saturates at R=6 m). Higher = slower in tight turns.')
+    ap.add_argument('--route-min', type=float, default=50.0,
+                    help='minimum straight-line spawn-to-goal distance (m)')
+    ap.add_argument('--route-max', type=float, default=None,
+                    help='maximum PATH length (m). Unbounded by default, which '
+                         'lets route difficulty vary enormously and dominate '
+                         'the seed-to-seed variance.')
     ap.add_argument('--no-diag', action='store_true',
                     help='disable solver diagnostics (on by default; writes '
                          'diagnostics/*.npz for analyze_solver_failures.py)')
