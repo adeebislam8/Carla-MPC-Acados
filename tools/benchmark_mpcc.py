@@ -104,6 +104,8 @@ def run(args):
             gate_depth=args.gate_depth,
             route_min_m=args.route_min,
             route_max_m=args.route_max,
+            npc_min=args.npc_min,
+            npc_max=args.npc_max,
             lookahead=args.lookahead,
             r3_cap=args.r3_cap,
             residual_mode=args.residual_mode,
@@ -140,6 +142,8 @@ def run(args):
         'gate_depth': args.gate_depth,
         'route_min': args.route_min,
         'route_max': args.route_max,
+        'npc_min': args.npc_min,
+        'npc_max': args.npc_max,
         'lookahead': args.lookahead,
         'r3_cap': args.r3_cap,
         'town': args.town,
@@ -313,6 +317,7 @@ def write_report(res, path):
     L.append(f"  town          : {res.get('town', res.get('towns', ['?'])[0])}")
     L.append(f"  route length  : {res.get('route_min', 50)} m min, "
              f"{res.get('route_max') or 'unbounded'} m max")
+    L.append(f"  NPC vehicles  : {res.get('npc_min', 0)}-{res.get('npc_max', 7)} per episode")
     L.append(f"  wall time     : {res['wall_time_s']/60:.1f} min")
     if res.get('model'):
         L.append(f"  policy        : {res['model']}  ({res.get('algo')}, "
@@ -543,6 +548,10 @@ def main():
     ap.add_argument('--vecnormalize', default=None,
                     help='path to vecnormalize.pkl from training. Auto-detected '
                          'next to --model if not given.')
+    ap.add_argument('--npc-min', type=int, default=3,
+                    help='minimum NPC vehicles per episode (default 3)')
+    ap.add_argument('--npc-max', type=int, default=10,
+                    help='maximum NPC vehicles per episode (default 10)')
     ap.add_argument('--no-diag', action='store_true',
                     help='disable solver diagnostics (on by default; writes '
                          'diagnostics/*.npz for analyze_solver_failures.py)')

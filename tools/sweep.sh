@@ -21,44 +21,28 @@ cd "$(dirname "$0")/.."
 # Keep a no-flag baseline first so every sweep has its own reference point
 # measured in the same session, rather than compared against an older run.
 CONFIGS=(
-  "len_unbounded|"
-  "len_150|--route-max 150"
-  "len_100|--route-max 100"
-  "len_075|--route-max 75"
+  "b0_Town01|--town Town01"
+  "b0_Town02|--town Town02"
+  "b0_Town03|--town Town03"
 )
 
-# Route length is difficulty.  An episode is pass/fail over the WHOLE route, and
-# only a 50 m MINIMUM was enforced -- no maximum -- so routes ran from 50 m to
-# the map diagonal.  At roughly 12% failure per junction, one junction gives 88%
-# episode success and eight gives 36%, purely from length.
+# Cross-town NOMINAL MPCC only (no --model, so the action is always [0,0]).
 #
-# That variance has been swamping every measurement: in the last sweep the
-# seed-to-seed spread on one config was 23 points, larger than any difference
-# BETWEEN configs.  Shorter, bounded routes should raise the success rate and --
-# more importantly for the paper -- shrink the variance enough that a 10-point
-# difference becomes detectable at all.
+# This is the experiment that decides whether the residual study is worth
+# running.  The paper's claim is that MPCC degrades under distribution shift and
+# the residual recovers it -- so what matters is the GAP between the training
+# town and the others, not the in-distribution number.
 #
-# Watch the "route length" line in each report to confirm the cap is binding,
-# and the per-seed table to see whether the spread actually narrows.
+# At route-max 150 the Town01 baseline is ~18% collisions, which leaves little
+# headroom: at 150 episodes the residual would have to remove half of what
+# remains (18% -> 10%) before the difference is detectable.  If Town02/03
+# degrade sharply there is plenty of room and the experiment has signal.  If
+# they do not, the route bound has made the task too easy to show anything, and
+# a controlled shift axis (the r3 / C_m1 / friction / delay perturbations in
+# spec sections 16.2-16.5) is the better experiment -- those give a CONTINUOUS
+# severity knob rather than three towns differing by an unknown amount.
 
-# Applied to every config.  Same seeds and town for all of them, or the
-# comparison is meaningless.
-# Controller config held fixed at `hold` from the 2026-09-15 sweep.
-#
-#   hold  30.67% success / 64.67% collisions / 0.92 overtakes per episode
-#   both  33.33% success / 62.67% collisions / 0.76 overtakes
-#
-# `both` was nominally better on success and collisions, but by 2.7 and 2.0
-# points with nothing separating statistically (p = 0.18 vs base for `both`,
-# 0.32 for `hold`), while `hold` overtakes 21% more often.  Overtaking is the
-# behaviour the paper needs to demonstrate -- the CBF-derived residual authority
-# has nothing to show if the barrier is never near-active -- so the overtake
-# rate is worth more than an unresolvable 2-point success difference.
-#
-# The difference between them is the `slow` half (--lookahead 20 --r3-cap 0.06),
-# which slows the virtual reference in bends and costs passes.  Add those two
-# flags back to return to `both`.
-COMMON="--seeds 1 2 3 --episodes 20 --qc 0.5 --gate-depth 0.98"
+COMMON="--seeds 1 2 3 4 5 --episodes 30 --route-max 150 --qc 0.5 --gate-depth 0.98"
 
 # Set to 1 to keep each config's solver diagnostics in diagnostics_<label>/
 KEEP_DIAGNOSTICS=1

@@ -51,6 +51,8 @@ class CarlaMPCEnv(gym.Env):
         gate_depth: float = None,
         route_min_m: float = 50.0,
         route_max_m: float = None,
+        npc_min: int = 3,
+        npc_max: int = 10,
         lookahead: float = None,
         r3_cap: float = None,
         residual_mode: str = 'adaptive',
@@ -204,6 +206,12 @@ class CarlaMPCEnv(gym.Env):
         # route_max_m caps the actual path length, not the straight-line gap.
         self.route_min_m = route_min_m
         self.route_max_m = route_max_m
+        # NPC count per episode, drawn from the per-episode RNG.  Was 0-7, which
+        # on a bounded 150 m route could leave an episode with no traffic at all
+        # -- and no traffic means no CBF activity, so nothing for the adaptive
+        # authority to act on.  Raising the floor guarantees interactions.
+        self.npc_min = npc_min
+        self.npc_max = npc_max
         self.gate_depth = gate_depth
         self.lookahead = lookahead
         self.r3_cap = r3_cap
@@ -1282,7 +1290,7 @@ class CarlaMPCEnv(gym.Env):
             _cand = [(self._ep_rng.randrange(len(spawn_points)),
                       self._ep_rng.randrange(len(spawn_points)))
                      for _ in range(max_attempts)]
-            _npc_count = self._ep_rng.randint(0, 7)
+            _npc_count = self._ep_rng.randint(self.npc_min, self.npc_max)
 
             for attempt in range(max_attempts):
                 # Build a fresh Transform: get_spawn_points() is cached above, so

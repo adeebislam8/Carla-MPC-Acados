@@ -42,6 +42,7 @@ def build_env(args, seed, for_eval=False):
         a_long_obs=args.a_long, b_lat_obs=args.b_lat,
         apex_gain=args.apex_gain, lookahead=args.lookahead, r3_cap=args.r3_cap,
         route_min_m=args.route_min, route_max_m=args.route_max,
+        npc_min=args.npc_min, npc_max=args.npc_max,
     )
 
 
@@ -75,6 +76,8 @@ def main():
     ap.add_argument('--r3-cap', type=float, default=None)
     ap.add_argument('--route-min', type=float, default=50.0)
     ap.add_argument('--route-max', type=float, default=None)
+    ap.add_argument('--npc-min', type=int, default=3)
+    ap.add_argument('--npc-max', type=int, default=10)
     ap.add_argument('--target-speed', type=float, default=15.0)
     ap.add_argument('--max-steps', type=int, default=1500)
     ap.add_argument('--town', default='Town01')
