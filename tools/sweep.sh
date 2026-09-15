@@ -59,6 +59,7 @@ for a in "$@"; do
 done
 
 LABELS=()
+FAILED=()
 for cfg in "${CONFIGS[@]}"; do LABELS+=("${cfg%%|*}"); done
 
 if [ "$COMPARE_ONLY" -eq 0 ]; then
@@ -79,9 +80,17 @@ if [ "$COMPARE_ONLY" -eq 0 ]; then
 
     # Fresh diagnostics dir per config so runs are not mixed together.
     rm -rf diagnostics
+    # Do not let one bad config abort the sweep.  Without this, `set -e` kills
+    # the run and the remaining configs plus the final comparison are lost --
+    # potentially hours of driving.  Failures are reported and skipped instead.
     # shellcheck disable=SC2086
-    python tools/benchmark_mpcc.py --label "$label" $COMMON $flags \
-      2>&1 | tee "results/${label}.log"
+    if python tools/benchmark_mpcc.py --label "$label" $COMMON $flags \
+         2>&1 | tee "results/${label}.log"; then
+      :
+    else
+      echo "!!! ${label} FAILED (see results/${label}.log) -- continuing"
+      FAILED+=("$label")
+    fi
 
     if [ "$KEEP_DIAGNOSTICS" -eq 1 ] && [ -d diagnostics ]; then
       rm -rf "diagnostics_${label}"
@@ -93,8 +102,11 @@ if [ "$COMPARE_ONLY" -eq 0 ]; then
     fi
   done
 
-  [ "$DRY" -eq 0 ] && \
-    echo && echo "sweep finished in $((($(date +%s)-START)/60)) min"
+  if [ "$DRY" -eq 0 ]; then
+    echo
+    echo "sweep finished in $((($(date +%s)-START)/60)) min"
+    [ "${#FAILED[@]}" -gt 0 ] && echo "FAILED configs: ${FAILED[*]}"
+  fi
 fi
 
 [ "$DRY" -eq 1 ] && exit 0
