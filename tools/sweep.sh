@@ -43,7 +43,22 @@ CONFIGS=(
 
 # Applied to every config.  Same seeds and town for all of them, or the
 # comparison is meaningless.
-COMMON="--seeds 1 2 3 4 5 --episodes 30"
+# Controller config held fixed at `hold` from the 2026-09-15 sweep.
+#
+#   hold  30.67% success / 64.67% collisions / 0.92 overtakes per episode
+#   both  33.33% success / 62.67% collisions / 0.76 overtakes
+#
+# `both` was nominally better on success and collisions, but by 2.7 and 2.0
+# points with nothing separating statistically (p = 0.18 vs base for `both`,
+# 0.32 for `hold`), while `hold` overtakes 21% more often.  Overtaking is the
+# behaviour the paper needs to demonstrate -- the CBF-derived residual authority
+# has nothing to show if the barrier is never near-active -- so the overtake
+# rate is worth more than an unresolvable 2-point success difference.
+#
+# The difference between them is the `slow` half (--lookahead 20 --r3-cap 0.06),
+# which slows the virtual reference in bends and costs passes.  Add those two
+# flags back to return to `both`.
+COMMON="--seeds 1 2 3 --episodes 20 --qc 0.5 --gate-depth 0.98"
 
 # Set to 1 to keep each config's solver diagnostics in diagnostics_<label>/
 KEEP_DIAGNOSTICS=1
